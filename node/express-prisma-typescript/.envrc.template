@@ -9,3 +9,9 @@ export DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhos
 # connects to the dockerized local postgres database
 DB_DOCKER_SERVICE="db"
 export DOCKER_DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DB_DOCKER_SERVICE}/${POSTGRES_DB}?connect_timeout=600"
+
+# AWS S3 Configuration
+export AWS_REGION="us-east-1"
+export AWS_ACCESS_KEY_ID="your-access-key-id"
+export AWS_SECRET_ACCESS_KEY="your-secret-access-key"
+export S3_BUCKET="twitter-clone-bucket"

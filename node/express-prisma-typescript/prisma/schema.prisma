@@ -19,10 +19,12 @@ datasource db {
 model User {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid // Primary Key
 
-  username String  @unique // Unique constraint
-  name     String? @db.VarChar(35) // Limit display name to 35 characters
-  email    String  @unique // Unique constraint
-  password String
+  username      String  @unique // Unique constraint
+  name          String? @db.VarChar(35) // Limit display name to 35 characters
+  email         String  @unique // Unique constraint
+  password      String
+  isPrivate     Boolean @default(false) // Flag to indicate if the profile is private
+  profilePicture String? // URL of the profile picture stored in S3
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -31,6 +33,7 @@ model User {
   posts     Post[]
   follows   Follow[] @relation(name: "follows")
   followers Follow[] @relation(name: "followers")
+  reactions Reaction[]
 }
 
 model Follow {
@@ -53,10 +56,38 @@ model Post {
   authorId String   @db.Uuid // Foreign Key
   content  String   @db.VarChar(240) // Limit the content to 240 characters
   images   String[]
-
+  
+  // Add parent-child relationship for comments
+  parentId String? @db.Uuid // Optional parent post ID for comments
+  parent   Post?   @relation("Comments", fields: [parentId], references: [id], onDelete: Cascade)
+  comments Post[]  @relation("Comments")
+  
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime? // Optional value
 
   author User @relation(fields: [authorId], references: [id], onDelete: Cascade) // One to many
+  reactions Reaction[]
+}
+
+model Reaction {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid // Primary Key
+
+  userId String @db.Uuid // Foreign Key
+  postId String @db.Uuid // Foreign Key
+  type   ReactionType
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // Optional value
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade) // One to many
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade) // One to many
+
+  @@unique([userId, postId, type]) // Ensure a user can only have one reaction of each type per post
+}
+
+enum ReactionType {
+  LIKE
+  RETWEET
 }

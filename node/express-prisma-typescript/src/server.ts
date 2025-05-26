@@ -3,9 +3,11 @@ import morgan from 'morgan'
 import cookieParser from 'cookie-parser'
 import cors from 'cors'
 
-import { Constants, NodeEnv, Logger } from '@utils'
+import { Constants, NodeEnv } from '@utils'
+import { Logger } from '@utils/logger'
 import { router } from '@router'
 import { ErrorHandling } from '@utils/errors'
+import { setupSwagger } from '@utils/swagger'
 
 const app = express()
 
@@ -26,10 +28,14 @@ app.use(
   })
 )
 
+// Set up Swagger documentation
+setupSwagger(app)
+
 app.use('/api', router)
 
 app.use(ErrorHandling)
 
 app.listen(Constants.PORT, () => {
   Logger.info(`Server listening on port ${Constants.PORT}`)
+  Logger.info(`API Documentation available at http://localhost:${Constants.PORT}/api-docs`)
 })

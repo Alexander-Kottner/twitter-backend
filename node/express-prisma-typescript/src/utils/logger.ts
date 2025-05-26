@@ -1,5 +1,5 @@
 import { Signale } from 'signale'
-import { Constants } from '@utils'
+import { Constants } from './constants'
 
 const options = {
   disabled: false,

@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
 import HttpStatus from 'http-status'
-import { Logger } from '@utils'
+import { Logger } from '@utils/logger'
 
 abstract class HttpException extends Error {
   constructor (readonly code: number, readonly message: string, readonly error?: object[] | object) {
@@ -18,6 +18,12 @@ export class UnauthorizedException extends HttpException {
   }
 }
 
+export class BadRequestException extends HttpException {
+  constructor (message: string = 'Bad Request') {
+    super(HttpStatus.BAD_REQUEST, message)
+  }
+}
+
 export class ValidationException extends HttpException {
   constructor (errors: object[]) {
     super(HttpStatus.BAD_REQUEST, 'Validation Error', errors)
@@ -25,8 +31,8 @@ export class ValidationException extends HttpException {
 }
 
 export class ForbiddenException extends HttpException {
-  constructor () {
-    super(HttpStatus.FORBIDDEN, 'Forbidden. You are not allowed to perform this action')
+  constructor (message: string = 'Forbidden. You are not allowed to perform this action') {
+    super(HttpStatus.FORBIDDEN, message)
   }
 }
 

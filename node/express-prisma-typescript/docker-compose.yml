@@ -26,6 +26,7 @@ services:
     tty: true
     environment:
       - DATABASE_URL=${DOCKER_DATABASE_URL}
+      - LOG_LEVEL=info
       - PORT=8080
     env_file:
       - .envrc
