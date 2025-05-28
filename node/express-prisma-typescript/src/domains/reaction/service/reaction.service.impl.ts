@@ -41,4 +41,28 @@ export class ReactionServiceImpl implements ReactionService {
   async getUserReactions (userId: string, type: ReactionType): Promise<ReactionDTO[]> {
     return this.repository.getByUserId(userId, type)
   }
-} 
+  
+  async syncAllReactionCounts(): Promise<void> {
+    // Get all post IDs from the repository instead of directly accessing the database
+    const postIds = await this.repository.getAllPostIds()
+    
+    console.log(`Starting to sync reaction counts for ${postIds.length} posts`)
+    
+    // Process posts in batches to avoid memory issues
+    const batchSize = 100
+    for (let i = 0; i < postIds.length; i += batchSize) {
+      const batch = postIds.slice(i, i + batchSize)
+      
+      // Process each post in the batch concurrently
+      await Promise.all(
+        batch.map(async (postId) => {
+          await this.repository.syncReactionCounts(postId)
+        })
+      )
+      
+      console.log(`Processed reaction counts for posts ${i + 1} to ${Math.min(i + batchSize, postIds.length)}`)
+    }
+    
+    console.log('Reaction count sync completed')
+  }
+}

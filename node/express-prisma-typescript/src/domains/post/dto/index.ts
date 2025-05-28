@@ -53,6 +53,8 @@ export class PostDTO {
     this.content = post.content
     this.createdAt = post.createdAt
     this.parentId = post.parentId
+    this.likeCount = post.likeCount || 0
+    this.retweetCount = post.retweetCount || 0
     this.images = post.images || []
   }
 
@@ -61,6 +63,8 @@ export class PostDTO {
   content: string
   createdAt: Date
   parentId?: string
+  likeCount: number
+  retweetCount: number
   images: PostImageDTO[]
 }
 

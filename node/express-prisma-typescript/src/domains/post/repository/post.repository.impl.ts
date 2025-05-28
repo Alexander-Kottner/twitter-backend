@@ -14,6 +14,8 @@ type PrismaPost = {
   updatedAt: Date;
   deletedAt: Date | null;
   parentId?: string | null;
+  likeCount: number;
+  retweetCount: number;
 }
 
 // Define a type that matches the actual Prisma PostImage schema
@@ -52,6 +54,8 @@ export class PostRepositoryImpl implements PostRepository {
       content: post.content,
       createdAt: post.createdAt,
       parentId: post.parentId,
+      likeCount: post.likeCount ?? 0,
+      retweetCount: post.retweetCount ?? 0,
       images: Array.isArray(post.images) 
         ? post.images.map((image: any) => this.mapPostImageToDTO(image))
         : []

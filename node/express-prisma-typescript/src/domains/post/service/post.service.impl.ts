@@ -59,9 +59,7 @@ export class PostServiceImpl implements PostService {
       }
     }
 
-    // Get reaction counts and user's reaction status
-    const reactionCounts = await this.reactionRepository.getCountByPostId(postId, ReactionType.LIKE)
-    const retweetCounts = await this.reactionRepository.getCountByPostId(postId, ReactionType.RETWEET)
+    // Get user's reaction status (we still need to check if the user has liked/retweeted)
     const hasLiked = await this.reactionRepository.getByPostIdAndUserId(postId, userId, ReactionType.LIKE) !== null
     const hasRetweeted = await this.reactionRepository.getByPostIdAndUserId(postId, userId, ReactionType.RETWEET) !== null
 
@@ -101,8 +99,8 @@ export class PostServiceImpl implements PostService {
       ...post,
       author: author as any, // Type assertion to avoid compatibility issues
       qtyComments: commentCount,
-      qtyLikes: reactionCounts,
-      qtyRetweets: retweetCounts,
+      qtyLikes: post.likeCount,
+      qtyRetweets: post.retweetCount,
       hasLiked,
       hasRetweeted
     })
@@ -131,10 +129,8 @@ export class PostServiceImpl implements PostService {
     // Get posts based on constructed condition
     const posts = await this.repository.getPosts(options, whereCondition)
     
-    // For each post, get the reaction counts, user's reaction status, and author info
+    // For each post, get the user's reaction status and author info
     const extendedPosts = await Promise.all(posts.map(async (post) => {
-      const reactionCounts = await this.reactionRepository.getCountByPostId(post.id, ReactionType.LIKE)
-      const retweetCounts = await this.reactionRepository.getCountByPostId(post.id, ReactionType.RETWEET)
       const hasLiked = await this.reactionRepository.getByPostIdAndUserId(post.id, userId, ReactionType.LIKE) !== null
       const hasRetweeted = await this.reactionRepository.getByPostIdAndUserId(post.id, userId, ReactionType.RETWEET) !== null
 
@@ -189,8 +185,8 @@ export class PostServiceImpl implements PostService {
           isPrivate: false
         } as any,
         qtyComments: commentCount,
-        qtyLikes: reactionCounts,
-        qtyRetweets: retweetCounts,
+        qtyLikes: post.likeCount,
+        qtyRetweets: post.retweetCount,
         hasLiked,
         hasRetweeted
       })
@@ -233,10 +229,8 @@ export class PostServiceImpl implements PostService {
       throw new NotFoundException('user')
     }
 
-    // For each post, get the reaction counts and user's reaction status
+    // For each post, get user's reaction status
     const extendedPosts = await Promise.all(posts.map(async (post) => {
-      const reactionCounts = await this.reactionRepository.getCountByPostId(post.id, ReactionType.LIKE)
-      const retweetCounts = await this.reactionRepository.getCountByPostId(post.id, ReactionType.RETWEET)
       const hasLiked = await this.reactionRepository.getByPostIdAndUserId(post.id, userId, ReactionType.LIKE) !== null
       const hasRetweeted = await this.reactionRepository.getByPostIdAndUserId(post.id, userId, ReactionType.RETWEET) !== null
 
@@ -270,8 +264,8 @@ export class PostServiceImpl implements PostService {
         ...post,
         author: author as any,
         qtyComments: commentCount,
-        qtyLikes: reactionCounts,
-        qtyRetweets: retweetCounts,
+        qtyLikes: post.likeCount,
+        qtyRetweets: post.retweetCount,
         hasLiked,
         hasRetweeted
       })
@@ -333,8 +327,6 @@ export class PostServiceImpl implements PostService {
 
     // Transform comments into ExtendedPostDTOs
     const extendedComments = await Promise.all(comments.map(async (comment) => {
-      const reactionCounts = await this.reactionRepository.getCountByPostId(comment.id, ReactionType.LIKE)
-      const retweetCounts = await this.reactionRepository.getCountByPostId(comment.id, ReactionType.RETWEET)
       const hasLiked = await this.reactionRepository.getByPostIdAndUserId(comment.id, userId, ReactionType.LIKE) !== null
       const hasRetweeted = await this.reactionRepository.getByPostIdAndUserId(comment.id, userId, ReactionType.RETWEET) !== null
 
@@ -352,8 +344,8 @@ export class PostServiceImpl implements PostService {
         ...comment,
         author: author as any,
         qtyComments: commentCount,
-        qtyLikes: reactionCounts,
-        qtyRetweets: retweetCounts,
+        qtyLikes: comment.likeCount,
+        qtyRetweets: comment.retweetCount,
         hasLiked,
         hasRetweeted
       })
@@ -386,8 +378,6 @@ export class PostServiceImpl implements PostService {
 
     // Transform comments into ExtendedPostDTOs with reaction counts
     const extendedComments = await Promise.all(comments.map(async (comment) => {
-      const reactionCounts = await this.reactionRepository.getCountByPostId(comment.id, ReactionType.LIKE)
-      const retweetCounts = await this.reactionRepository.getCountByPostId(comment.id, ReactionType.RETWEET)
       const hasLiked = await this.reactionRepository.getByPostIdAndUserId(comment.id, userId, ReactionType.LIKE) !== null
       const hasRetweeted = await this.reactionRepository.getByPostIdAndUserId(comment.id, userId, ReactionType.RETWEET) !== null
 
@@ -405,8 +395,8 @@ export class PostServiceImpl implements PostService {
         ...comment,
         author: author as any,
         qtyComments: commentCount,
-        qtyLikes: reactionCounts,
-        qtyRetweets: retweetCounts,
+        qtyLikes: comment.likeCount,
+        qtyRetweets: comment.retweetCount,
         hasLiked,
         hasRetweeted
       })
@@ -472,10 +462,8 @@ export class PostServiceImpl implements PostService {
       throw new NotFoundException('user')
     }
 
-    // For each comment, get the reaction counts and user's reaction status
+    // For each comment, get the user's reaction status
     const extendedComments = await Promise.all(comments.map(async (comment) => {
-      const reactionCounts = await this.reactionRepository.getCountByPostId(comment.id, ReactionType.LIKE)
-      const retweetCounts = await this.reactionRepository.getCountByPostId(comment.id, ReactionType.RETWEET)
       const hasLiked = await this.reactionRepository.getByPostIdAndUserId(comment.id, userId, ReactionType.LIKE) !== null
       const hasRetweeted = await this.reactionRepository.getByPostIdAndUserId(comment.id, userId, ReactionType.RETWEET) !== null
 
@@ -487,8 +475,8 @@ export class PostServiceImpl implements PostService {
         ...comment,
         author: author as any,
         qtyComments: commentCount,
-        qtyLikes: reactionCounts,
-        qtyRetweets: retweetCounts,
+        qtyLikes: comment.likeCount,
+        qtyRetweets: comment.retweetCount,
         hasLiked,
         hasRetweeted
       })

@@ -6,4 +6,5 @@ export interface ReactionService {
   getReactionCountsForPost: (postId: string) => Promise<{ likes: number, retweets: number }>
   hasUserReacted: (userId: string, postId: string, type: ReactionType) => Promise<boolean>
   getUserReactions: (userId: string, type: ReactionType) => Promise<ReactionDTO[]>
-} 
+  syncAllReactionCounts: () => Promise<void> // New method to sync all reaction counts
+}

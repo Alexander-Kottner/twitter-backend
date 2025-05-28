@@ -10,7 +10,8 @@
     "lint": "eslint --fix && pretty-quick && prisma format",
     "db:migrate": "prisma migrate deploy",
     "db:make-migrations": "prisma migrate dev",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "sync:reactions": "ts-node -r tsconfig-paths/register src/utils/sync-reaction-counts.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.816.0",
