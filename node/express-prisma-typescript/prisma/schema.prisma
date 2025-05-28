@@ -55,7 +55,6 @@ model Post {
 
   authorId String   @db.Uuid // Foreign Key
   content  String   @db.VarChar(240) // Limit the content to 240 characters
-  images   String[]
   
   // Add parent-child relationship for comments
   parentId String? @db.Uuid // Optional parent post ID for comments
@@ -68,6 +67,23 @@ model Post {
 
   author User @relation(fields: [authorId], references: [id], onDelete: Cascade) // One to many
   reactions Reaction[]
+  images PostImage[] // Relation to PostImage model
+}
+
+model PostImage {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid // Primary Key
+  
+  postId String @db.Uuid // Foreign Key to Post
+  s3Key String  // S3 key to access the image
+  index Int     // Index of the image (0-3) to maintain order
+  
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // Optional value
+  
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade) // One to many
+  
+  @@unique([postId, index]) // Ensure unique index per post
 }
 
 model Reaction {

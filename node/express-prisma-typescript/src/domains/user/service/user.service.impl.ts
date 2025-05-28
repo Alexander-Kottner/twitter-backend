@@ -3,7 +3,7 @@ import { OffsetPagination } from 'types'
 import { UserDTO, UserViewDTO } from '../dto'
 import { UserRepository } from '../repository'
 import { UserService } from './user.service'
-import { generateProfilePictureKey, generateUploadUrl, getPublicUrl } from '@utils/s3'
+import { generateProfilePictureKey, generateUploadUrl, getProfilePictureUrl } from '@utils/s3'
 import { FollowerRepository } from '@domains/follower/repository'
 
 export class UserServiceImpl implements UserService {
@@ -21,11 +21,14 @@ export class UserServiceImpl implements UserService {
       isFollowed = await this.followerRepository.isFollowing(currentUserId, userId)
     }
     
+    // Generate public URL for profile picture if it exists
+    const profilePictureUrl = user.profilePicture ? getProfilePictureUrl(user.profilePicture) : null
+    
     return new UserViewDTO({
       id: user.id,
       name: user.name || '',
       username: user.username,
-      profilePicture: user.profilePicture,
+      profilePicture: profilePictureUrl,
       isPrivate: user.isPrivate,
       isFollowed
     })
@@ -40,11 +43,14 @@ export class UserServiceImpl implements UserService {
         isFollowed = await this.followerRepository.isFollowing(userId, user.id)
       }
       
+      // Generate public URL for profile picture if it exists
+      const profilePictureUrl = user.profilePicture ? getProfilePictureUrl(user.profilePicture) : null
+      
       return new UserViewDTO({
         id: user.id,
         name: user.name || '',
         username: user.username,
-        profilePicture: user.profilePicture,
+        profilePicture: profilePictureUrl,
         isPrivate: user.isPrivate,
         isFollowed
       })
@@ -59,11 +65,14 @@ export class UserServiceImpl implements UserService {
         isFollowed = await this.followerRepository.isFollowing(currentUserId, user.id)
       }
       
+      // Generate public URL for profile picture if it exists
+      const profilePictureUrl = user.profilePicture ? getProfilePictureUrl(user.profilePicture) : null
+      
       return new UserViewDTO({
         id: user.id,
         name: user.name || '',
         username: user.username,
-        profilePicture: user.profilePicture,
+        profilePicture: profilePictureUrl,
         isPrivate: user.isPrivate,
         isFollowed
       })

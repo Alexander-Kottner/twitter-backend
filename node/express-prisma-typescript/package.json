@@ -28,6 +28,7 @@
     "jsonwebtoken": "^9.0.0",
     "method-override": "^3.0.0",
     "morgan": "^1.10.0",
+    "reflect-metadata": "^0.2.2",
     "signale": "^1.4.0"
   },
   "devDependencies": {

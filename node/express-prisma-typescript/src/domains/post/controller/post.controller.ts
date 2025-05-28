@@ -7,7 +7,7 @@ import { db, BodyValidation } from '@utils'
 
 import { PostRepositoryImpl } from '../repository'
 import { PostService, PostServiceImpl } from '../service'
-import { CreatePostInputDTO, UpdatePostImagesDTO } from '../dto'
+import { CreatePostImageDTO, CreatePostInputDTO, PostImageUploadDTO } from '../dto'
 
 export const postRouter = Router()
 
@@ -159,11 +159,6 @@ postRouter.get('/by_user/:userId', async (req: Request, res: Response) => {
  *               content:
  *                 type: string
  *                 description: Contenido textual del post
- *               images:
- *                 type: array
- *                 items:
- *                   type: string
- *                 description: URLs de las imágenes del post
  *     responses:
  *       201:
  *         description: Post creado correctamente
@@ -399,11 +394,6 @@ postRouter.get('/:postId/with_comments', async (req: Request, res: Response) => 
  *               content:
  *                 type: string
  *                 description: Contenido textual del comentario
- *               images:
- *                 type: array
- *                 items:
- *                   type: string
- *                 description: URLs de las imágenes del comentario
  *     responses:
  *       201:
  *         description: Comentario creado correctamente
@@ -494,7 +484,7 @@ postRouter.get('/user/:userId/comments', async (req: Request, res: Response) => 
  *         required: true
  *         schema:
  *           type: integer
- *         description: Índice de la imagen en el array de imágenes del post
+ *         description: Índice de la imagen en el array de imágenes del post (0-3)
  *     responses:
  *       200:
  *         description: URL generada correctamente
@@ -521,7 +511,7 @@ postRouter.get('/:postId/image-upload-url', async (req: Request, res: Response) 
   const { postId } = req.params
   const { fileExt, index } = req.query as { fileExt: string, index: string }
 
-  if (!fileExt || !index) {
+  if (!fileExt || index === undefined) {
     return res.status(HttpStatus.BAD_REQUEST).json({ message: 'File extension and index are required' })
   }
 
@@ -533,9 +523,9 @@ postRouter.get('/:postId/image-upload-url', async (req: Request, res: Response) 
 /**
  * @swagger
  * /post/{postId}/images:
- *   patch:
- *     summary: Actualizar imágenes de un post
- *     description: Actualiza las URLs de las imágenes asociadas a un post después de subirlas a S3
+ *   get:
+ *     summary: Obtener imágenes de un post
+ *     description: Devuelve todas las imágenes asociadas a un post específico
  *     tags:
  *       - Posts
  *     security:
@@ -546,7 +536,47 @@ postRouter.get('/:postId/image-upload-url', async (req: Request, res: Response) 
  *         required: true
  *         schema:
  *           type: string
- *         description: ID del post cuyas imágenes se actualizarán
+ *         description: ID del post del cual obtener imágenes
+ *     responses:
+ *       200:
+ *         description: Lista de imágenes del post
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/PostImage'
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: Post no encontrado
+ */
+postRouter.get('/:postId/images', async (req: Request, res: Response) => {
+  const { userId } = res.locals.context
+  const { postId } = req.params
+
+  const images = await service.getPostImages(userId, postId)
+
+  return res.status(HttpStatus.OK).json(images)
+})
+
+/**
+ * @swagger
+ * /post/{postId}/image:
+ *   post:
+ *     summary: Agregar una imagen a un post
+ *     description: Añade una nueva imagen a un post después de subirla a S3
+ *     tags:
+ *       - Posts
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del post al que agregar la imagen
  *     requestBody:
  *       required: true
  *       content:
@@ -554,20 +584,119 @@ postRouter.get('/:postId/image-upload-url', async (req: Request, res: Response) 
  *           schema:
  *             type: object
  *             required:
- *               - images
+ *               - s3Key
+ *               - index
  *             properties:
- *               images:
- *                 type: array
- *                 items:
- *                   type: string
- *                 description: Nuevas URLs de las imágenes del post
+ *               s3Key:
+ *                 type: string
+ *                 description: Clave de la imagen en S3
+ *               index:
+ *                 type: integer
+ *                 minimum: 0
+ *                 maximum: 3
+ *                 description: Índice de la imagen (0-3)
  *     responses:
- *       200:
- *         description: Imágenes actualizadas correctamente
+ *       201:
+ *         description: Imagen agregada correctamente
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Post'
+ *               $ref: '#/components/schemas/PostImage'
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: No eres el autor del post o límite de imágenes alcanzado
+ *       404:
+ *         description: Post no encontrado
+ */
+postRouter.post('/:postId/image', async (req: Request, res: Response) => {
+  const { userId } = res.locals.context
+  const { postId } = req.params
+  const { s3Key, index } = req.body
+
+  if (!s3Key || index === undefined) {
+    return res.status(HttpStatus.BAD_REQUEST).json({ message: 'S3 key and index are required' })
+  }
+
+  const postImage = await service.addPostImage(userId, postId, s3Key, Number(index))
+
+  return res.status(HttpStatus.CREATED).json(postImage)
+})
+
+/**
+ * @swagger
+ * /post/image/{imageId}:
+ *   delete:
+ *     summary: Eliminar una imagen de un post
+ *     description: Elimina una imagen específica de un post
+ *     tags:
+ *       - Posts
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: imageId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la imagen a eliminar
+ *     responses:
+ *       200:
+ *         description: Imagen eliminada correctamente
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: No eres el autor del post
+ *       404:
+ *         description: Imagen no encontrada
+ */
+postRouter.delete('/image/:imageId', async (req: Request, res: Response) => {
+  const { userId } = res.locals.context
+  const { imageId } = req.params
+
+  await service.deletePostImage(userId, imageId)
+
+  return res.status(HttpStatus.OK).json({ message: 'Image deleted successfully' })
+})
+
+/**
+ * @swagger
+ * /post/image/{imageId}:
+ *   patch:
+ *     summary: Actualizar una imagen de un post
+ *     description: Actualiza la clave S3 de una imagen específica
+ *     tags:
+ *       - Posts
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: imageId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la imagen a actualizar
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - s3Key
+ *             properties:
+ *               s3Key:
+ *                 type: string
+ *                 description: Nueva clave de la imagen en S3
+ *     responses:
+ *       200:
+ *         description: Imagen actualizada correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PostImage'
  *       400:
  *         description: Datos inválidos
  *       401:
@@ -575,14 +704,18 @@ postRouter.get('/:postId/image-upload-url', async (req: Request, res: Response) 
  *       403:
  *         description: No eres el autor del post
  *       404:
- *         description: Post no encontrado
+ *         description: Imagen no encontrada
  */
-postRouter.patch('/:postId/images', BodyValidation(UpdatePostImagesDTO), async (req: Request, res: Response) => {
+postRouter.patch('/image/:imageId', async (req: Request, res: Response) => {
   const { userId } = res.locals.context
-  const { postId } = req.params
-  const { images } = req.body
+  const { imageId } = req.params
+  const { s3Key } = req.body
 
-  const post = await service.updatePostImages(userId, postId, images)
+  if (!s3Key) {
+    return res.status(HttpStatus.BAD_REQUEST).json({ message: 'S3 key is required' })
+  }
 
-  return res.status(HttpStatus.OK).json(post)
+  const postImage = await service.updatePostImage(userId, imageId, s3Key)
+
+  return res.status(HttpStatus.OK).json(postImage)
 })

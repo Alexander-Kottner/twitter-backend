@@ -1,4 +1,4 @@
-import { CreatePostInputDTO, ExtendedPostDTO, PostDTO } from '../dto'
+import { CreatePostImageDTO, CreatePostInputDTO, ExtendedPostDTO, PostDTO, PostImageDTO } from '../dto'
 import { CursorPagination } from '@types'
 
 export interface PostService {
@@ -12,6 +12,11 @@ export interface PostService {
   getCommentsByPostIdPaginated: (userId: string, postId: string, options: CursorPagination) => Promise<ExtendedPostDTO[]>
   getPostsWithComments: (userId: string, postId: string) => Promise<ExtendedPostDTO>
   getCommentsByUserId: (userId: string, targetUserId: string) => Promise<ExtendedPostDTO[]>
+  
+  // Updated methods for handling post images
   generatePostImageUploadUrl: (userId: string, postId: string, fileExt: string, index: number) => Promise<{ uploadUrl: string, key: string }>
-  updatePostImages: (userId: string, postId: string, images: string[]) => Promise<PostDTO>
+  addPostImage: (userId: string, postId: string, s3Key: string, index: number) => Promise<PostImageDTO>
+  updatePostImage: (userId: string, imageId: string, s3Key: string) => Promise<PostImageDTO>
+  deletePostImage: (userId: string, imageId: string) => Promise<void>
+  getPostImages: (userId: string, postId: string) => Promise<PostImageDTO[]>
 }

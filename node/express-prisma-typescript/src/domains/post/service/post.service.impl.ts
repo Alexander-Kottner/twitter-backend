@@ -1,4 +1,4 @@
-import { CreatePostInputDTO, ExtendedPostDTO, PostDTO } from '../dto'
+import { CreatePostImageDTO, CreatePostInputDTO, ExtendedPostDTO, PostDTO, PostImageDTO } from '../dto'
 import { PostRepository } from '../repository'
 import { PostService } from '.'
 import { validate } from 'class-validator'
@@ -9,7 +9,12 @@ import { db } from '@utils'
 import { ReactionType } from '@domains/reaction/dto'
 import { UserViewDTO } from '@domains/user/dto'
 import { UserRepository, UserRepositoryImpl } from '@domains/user/repository'
-import { generatePostPictureKey, generateUploadUrl, getPublicUrl } from '@utils/s3'
+import { 
+  generatePostPictureKey, 
+  generateUploadUrl, 
+  getPostImageUrl, 
+  hasAccessToPostImage 
+} from '@utils/s3'
 
 export class PostServiceImpl implements PostService {
   private readonly reactionRepository: ReactionRepositoryImpl
@@ -38,11 +43,14 @@ export class PostServiceImpl implements PostService {
     if (!post) throw new NotFoundException('post')
     
     // If the requester is not the author, check for privacy
+    let isAuthorPrivate = false
+    let isFollowing = false
+    
     if (post.authorId !== userId) {
-      const isAuthorPrivate = await this.repository.getUserPrivacyStatus(post.authorId)
+      isAuthorPrivate = await this.repository.getUserPrivacyStatus(post.authorId)
       
       if (isAuthorPrivate) {
-        const isFollowing = await this.repository.checkFollowRelationship(userId, post.authorId)
+        isFollowing = await this.repository.checkFollowRelationship(userId, post.authorId)
         
         // If user doesn't follow private author, throw 404
         if (!isFollowing) {
@@ -65,6 +73,28 @@ export class PostServiceImpl implements PostService {
     const author = await this.userRepository.getById(post.authorId)
     if (!author) {
       throw new NotFoundException('user')
+    }
+
+    // Generate presigned URLs for post images if authorized
+    if (post.images && post.images.length > 0) {
+      const imagesWithUrls = await Promise.all(post.images.map(async (image) => {
+        // Generate a presigned URL or null if not authorized
+        const imageUrl = await getPostImageUrl(
+          image.s3Key,
+          userId,
+          post.authorId,
+          isAuthorPrivate,
+          isFollowing
+        )
+        
+        return {
+          ...image,
+          url: imageUrl
+        }
+      }))
+      
+      // Replace the original images array with one including URLs
+      post.images = imagesWithUrls
     }
 
     return new ExtendedPostDTO({
@@ -115,6 +145,40 @@ export class PostServiceImpl implements PostService {
       // Fetch the actual author data
       const author = await this.userRepository.getById(post.authorId)
       
+      // Determine if author has a private profile and if user is following them
+      let isAuthorPrivate = false
+      let isFollowing = false
+      
+      if (author && post.authorId !== userId) {
+        isAuthorPrivate = author.isPrivate
+        // Only check following status if the author is private
+        if (isAuthorPrivate) {
+          isFollowing = await this.repository.checkFollowRelationship(userId, post.authorId)
+        }
+      }
+      
+      // Generate presigned URLs for post images if authorized
+      if (post.images && post.images.length > 0) {
+        const imagesWithUrls = await Promise.all(post.images.map(async (image) => {
+          // Generate a presigned URL or null if not authorized
+          const imageUrl = await getPostImageUrl(
+            image.s3Key,
+            userId,
+            post.authorId,
+            isAuthorPrivate,
+            isFollowing
+          )
+          
+          return {
+            ...image,
+            url: imageUrl
+          }
+        }))
+        
+        // Replace the original images array with one including URLs
+        post.images = imagesWithUrls
+      }
+      
       return new ExtendedPostDTO({
         ...post,
         author: author || { 
@@ -144,11 +208,14 @@ export class PostServiceImpl implements PostService {
     
     // If the author has a private profile and the requester is not the author,
     // check if the requester follows them
+    let isAuthorPrivate = false
+    let isFollowing = false
+    
     if (authorId !== userId) {
-      const isAuthorPrivate = await this.repository.getUserPrivacyStatus(authorId)
+      isAuthorPrivate = await this.repository.getUserPrivacyStatus(authorId)
       
       if (isAuthorPrivate) {
-        const isFollowing = await this.repository.checkFollowRelationship(userId, authorId)
+        isFollowing = await this.repository.checkFollowRelationship(userId, authorId)
         
         // If user doesn't follow private author, throw 404
         if (!isFollowing) {
@@ -176,6 +243,28 @@ export class PostServiceImpl implements PostService {
       // Get comment count
       const comments = await this.repository.getCommentsByParentId(post.id)
       const commentCount = comments.length
+
+      // Generate presigned URLs for post images if authorized
+      if (post.images && post.images.length > 0) {
+        const imagesWithUrls = await Promise.all(post.images.map(async (image) => {
+          // Generate a presigned URL or null if not authorized
+          const imageUrl = await getPostImageUrl(
+            image.s3Key,
+            userId,
+            authorId,
+            isAuthorPrivate,
+            isFollowing
+          )
+          
+          return {
+            ...image,
+            url: imageUrl
+          }
+        }))
+        
+        // Replace the original images array with one including URLs
+        post.images = imagesWithUrls
+      }
 
       return new ExtendedPostDTO({
         ...post,
@@ -213,7 +302,6 @@ export class PostServiceImpl implements PostService {
     // Create the comment with parentId set to the post ID
     const commentData: CreatePostInputDTO = {
       content: data.content,
-      images: data.images,
       parentId: postId
     }
 
@@ -415,6 +503,20 @@ export class PostServiceImpl implements PostService {
     if (!post) throw new NotFoundException('post')
     if (post.authorId !== userId) throw new ForbiddenException()
     
+    // Make sure the index is within the allowed range (0-3)
+    if (index < 0 || index > 3) {
+      throw new ForbiddenException('Image index must be between 0 and 3')
+    }
+    
+    // Get existing images for this post to make sure we don't exceed the limit
+    const existingImages = await this.repository.getPostImagesByPostId(postId)
+    
+    // If there's already an image at this index, we'll be replacing it
+    const existingImageAtIndex = existingImages.find(img => img.index === index)
+    if (!existingImageAtIndex && existingImages.length >= 4) {
+      throw new ForbiddenException('Maximum of 4 images per post allowed')
+    }
+    
     // Generate a unique key for the image
     const key = generatePostPictureKey(postId, index, fileExt)
     
@@ -427,14 +529,113 @@ export class PostServiceImpl implements PostService {
     return { uploadUrl, key }
   }
 
-  async updatePostImages(userId: string, postId: string, images: string[]): Promise<PostDTO> {
+  async addPostImage(userId: string, postId: string, s3Key: string, index: number): Promise<PostImageDTO> {
     // Check if the post exists and belongs to the user
     const post = await this.repository.getById(postId)
     if (!post) throw new NotFoundException('post')
     if (post.authorId !== userId) throw new ForbiddenException()
     
-    // Update the post images
-    return await this.repository.updateImages(postId, images)
+    // Make sure the index is within the allowed range (0-3)
+    if (index < 0 || index > 3) {
+      throw new ForbiddenException('Image index must be between 0 and 3')
+    }
+    
+    // Get existing images for this post
+    const existingImages = await this.repository.getPostImagesByPostId(postId)
+    
+    // Check if there's already an image at this index
+    const existingImageAtIndex = existingImages.find(img => img.index === index)
+    if (existingImageAtIndex) {
+      // Update the existing image
+      return await this.repository.updatePostImage(existingImageAtIndex.id, s3Key)
+    } else {
+      // Make sure we don't exceed the limit
+      if (existingImages.length >= 4) {
+        throw new ForbiddenException('Maximum of 4 images per post allowed')
+      }
+      
+      // Create a new image
+      const imageData: CreatePostImageDTO = {
+        postId,
+        s3Key,
+        index
+      }
+      
+      return await this.repository.createPostImage(imageData)
+    }
+  }
+
+  async updatePostImage(userId: string, imageId: string, s3Key: string): Promise<PostImageDTO> {
+    // Get the image to check if it exists
+    const images = await this.repository.getPostImagesByPostId(imageId)
+    if (!images || images.length === 0) throw new NotFoundException('image')
+    
+    // Check if the post belongs to the user
+    const post = await this.repository.getById(images[0].postId)
+    if (!post) throw new NotFoundException('post')
+    if (post.authorId !== userId) throw new ForbiddenException()
+    
+    // Update the image
+    return await this.repository.updatePostImage(imageId, s3Key)
+  }
+
+  async deletePostImage(userId: string, imageId: string): Promise<void> {
+    // Get the image to check if it exists and to get the post ID
+    const images = await this.repository.getPostImagesByPostId(imageId)
+    if (!images || images.length === 0) throw new NotFoundException('image')
+    
+    // Check if the post belongs to the user
+    const post = await this.repository.getById(images[0].postId)
+    if (!post) throw new NotFoundException('post')
+    if (post.authorId !== userId) throw new ForbiddenException()
+    
+    // Delete the image
+    await this.repository.deletePostImage(imageId)
+  }
+
+  async getPostImages(userId: string, postId: string): Promise<PostImageDTO[]> {
+    // Check if the post exists
+    const post = await this.repository.getById(postId)
+    if (!post) throw new NotFoundException('post')
+    
+    // If the post author is not the requesting user, check privacy
+    let isAuthorPrivate = false
+    let isFollowing = false
+    
+    if (post.authorId !== userId) {
+      isAuthorPrivate = await this.repository.getUserPrivacyStatus(post.authorId)
+      
+      if (isAuthorPrivate) {
+        isFollowing = await this.repository.checkFollowRelationship(userId, post.authorId)
+        
+        // If user doesn't follow private author, throw 404
+        if (!isFollowing) {
+          throw new NotFoundException('post')
+        }
+      }
+    }
+    
+    // Get the images
+    const images = await this.repository.getPostImagesByPostId(postId)
+    
+    // Generate presigned URLs for each image
+    const imagesWithUrls = await Promise.all(images.map(async (image) => {
+      // Generate a presigned URL for download
+      const imageUrl = await getPostImageUrl(
+        image.s3Key,
+        userId,
+        post.authorId,
+        isAuthorPrivate,
+        isFollowing
+      )
+      
+      return {
+        ...image,
+        url: imageUrl
+      }
+    }))
+    
+    return imagesWithUrls
   }
 
   private getContentTypeFromFileExt(fileExt: string): string {

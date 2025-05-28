@@ -1,5 +1,39 @@
-import { IsNotEmpty, IsOptional, IsString, MaxLength, IsUUID } from 'class-validator'
+import { IsNotEmpty, IsOptional, IsString, MaxLength, IsUUID, IsInt, Min, Max, ValidateNested, ArrayMaxSize } from 'class-validator'
 import { ExtendedUserDTO } from '@domains/user/dto'
+import { Type } from 'class-transformer'
+
+export class PostImageDTO {
+  constructor (image: PostImageDTO) {
+    this.id = image.id
+    this.postId = image.postId
+    this.s3Key = image.s3Key
+    this.index = image.index
+    this.createdAt = image.createdAt
+    this.url = image.url
+  }
+
+  id: string
+  postId: string
+  s3Key: string
+  index: number
+  createdAt: Date
+  url?: string | null // Presigned URL for accessing the image
+}
+
+export class CreatePostImageDTO {
+  @IsString()
+  @IsNotEmpty()
+    postId!: string
+
+  @IsString()
+  @IsNotEmpty()
+    s3Key!: string
+
+  @IsInt()
+  @Min(0)
+  @Max(3)
+    index!: number
+}
 
 export class CreatePostInputDTO {
   @IsString()
@@ -7,10 +41,6 @@ export class CreatePostInputDTO {
   @MaxLength(240)
     content!: string
 
-  @IsOptional()
-  @MaxLength(4)
-    images?: string[]
-    
   @IsOptional()
   @IsUUID()
     parentId?: string
@@ -21,17 +51,17 @@ export class PostDTO {
     this.id = post.id
     this.authorId = post.authorId
     this.content = post.content
-    this.images = post.images
     this.createdAt = post.createdAt
     this.parentId = post.parentId
+    this.images = post.images || []
   }
 
   id: string
   authorId: string
   content: string
-  images: string[]
   createdAt: Date
   parentId?: string
+  images: PostImageDTO[]
 }
 
 export class ExtendedPostDTO extends PostDTO {
@@ -64,9 +94,15 @@ export class PostImageUploadDTO {
   @IsString()
   fileExt!: string
 
-  constructor(postId: string, fileExt: string) {
+  @IsInt()
+  @Min(0)
+  @Max(3)
+  index!: number
+
+  constructor(postId: string, fileExt: string, index: number) {
     this.postId = postId
     this.fileExt = fileExt
+    this.index = index
   }
 }
 
@@ -75,11 +111,12 @@ export class UpdatePostImagesDTO {
   @IsString()
   postId!: string
 
-  @IsNotEmpty()
-  @MaxLength(4)
-  images!: string[]
+  @ValidateNested({ each: true })
+  @ArrayMaxSize(4)
+  @Type(() => CreatePostImageDTO)
+  images!: CreatePostImageDTO[]
 
-  constructor(postId: string, images: string[]) {
+  constructor(postId: string, images: CreatePostImageDTO[]) {
     this.postId = postId
     this.images = images
   }

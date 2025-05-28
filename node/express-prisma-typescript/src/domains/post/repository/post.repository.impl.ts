@@ -3,14 +3,25 @@ import { PrismaClient } from '@prisma/client'
 import { CursorPagination } from '@types'
 
 import { PostRepository } from '.'
-import { CreatePostInputDTO, PostDTO } from '../dto'
+import { CreatePostImageDTO, CreatePostInputDTO, PostDTO, PostImageDTO } from '../dto'
 
 // Define a type that matches the actual Prisma Post schema
 type PrismaPost = {
   id: string;
   authorId: string;
   content: string;
-  images: string[];
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+  parentId?: string | null;
+}
+
+// Define a type that matches the actual Prisma PostImage schema
+type PrismaPostImage = {
+  id: string;
+  postId: string;
+  s3Key: string;
+  index: number;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -23,7 +34,11 @@ export class PostRepositoryImpl implements PostRepository {
     const post = await this.db.post.create({
       data: {
         authorId: userId,
-        ...data
+        content: data.content,
+        parentId: data.parentId
+      },
+      include: {
+        images: true
       }
     })
     return this.mapPostToDTO(post)
@@ -35,9 +50,22 @@ export class PostRepositoryImpl implements PostRepository {
       id: post.id,
       authorId: post.authorId,
       content: post.content,
-      images: post.images,
       createdAt: post.createdAt,
-      parentId: post.parentId
+      parentId: post.parentId,
+      images: Array.isArray(post.images) 
+        ? post.images.map((image: any) => this.mapPostImageToDTO(image))
+        : []
+    });
+  }
+
+  // Helper method to convert Prisma PostImage to PostImageDTO
+  private mapPostImageToDTO(image: any): PostImageDTO {
+    return new PostImageDTO({
+      id: image.id,
+      postId: image.postId,
+      s3Key: image.s3Key,
+      index: image.index,
+      createdAt: image.createdAt
     });
   }
 
@@ -54,7 +82,14 @@ export class PostRepositoryImpl implements PostRepository {
         {
           id: 'asc'
         }
-      ]
+      ],
+      include: {
+        images: {
+          orderBy: {
+            index: 'asc'
+          }
+        }
+      }
     })
     return posts.map(post => this.mapPostToDTO(post))
   }
@@ -97,6 +132,7 @@ export class PostRepositoryImpl implements PostRepository {
   }
 
   async delete (postId: string): Promise<void> {
+    // When a post is deleted, all associated images will be deleted automatically due to the CASCADE constraint
     await this.db.post.delete({
       where: {
         id: postId
@@ -108,6 +144,13 @@ export class PostRepositoryImpl implements PostRepository {
     const post = await this.db.post.findUnique({
       where: {
         id: postId
+      },
+      include: {
+        images: {
+          orderBy: {
+            index: 'asc'
+          }
+        }
       }
     })
     return (post != null) ? this.mapPostToDTO(post) : null
@@ -117,6 +160,13 @@ export class PostRepositoryImpl implements PostRepository {
     const posts = await this.db.post.findMany({
       where: {
         authorId
+      },
+      include: {
+        images: {
+          orderBy: {
+            index: 'asc'
+          }
+        }
       }
     })
     return posts.map(post => this.mapPostToDTO(post))
@@ -130,6 +180,13 @@ export class PostRepositoryImpl implements PostRepository {
       },
       orderBy: {
         createdAt: 'desc'
+      },
+      include: {
+        images: {
+          orderBy: {
+            index: 'asc'
+          }
+        }
       }
     })
     return comments.map(post => this.mapPostToDTO(post))
@@ -151,7 +208,14 @@ export class PostRepositoryImpl implements PostRepository {
         {
           id: 'asc'
         }
-      ]
+      ],
+      include: {
+        images: {
+          orderBy: {
+            index: 'asc'
+          }
+        }
+      }
     })
     
     return comments.map(post => this.mapPostToDTO(post))
@@ -164,20 +228,70 @@ export class PostRepositoryImpl implements PostRepository {
         authorId: userId,
         parentId: { not: null },
         deletedAt: null
+      },
+      include: {
+        images: {
+          orderBy: {
+            index: 'asc'
+          }
+        }
       }
     })
     return comments.map(post => this.mapPostToDTO(post))
   }
 
-  async updateImages(postId: string, images: string[]): Promise<PostDTO> {
-    const post = await this.db.post.update({
-      where: {
-        id: postId
-      },
+  async createPostImage(data: CreatePostImageDTO): Promise<PostImageDTO> {
+    const image = await this.db.postImage.create({
       data: {
-        images
+        postId: data.postId,
+        s3Key: data.s3Key,
+        index: data.index
       }
     })
-    return this.mapPostToDTO(post)
+    
+    return this.mapPostImageToDTO(image)
+  }
+
+  async getPostImagesByPostId(postId: string): Promise<PostImageDTO[]> {
+    const images = await this.db.postImage.findMany({
+      where: {
+        postId,
+        deletedAt: null
+      },
+      orderBy: {
+        index: 'asc'
+      }
+    })
+    
+    return images.map(image => this.mapPostImageToDTO(image))
+  }
+
+  async deletePostImage(imageId: string): Promise<void> {
+    await this.db.postImage.delete({
+      where: {
+        id: imageId
+      }
+    })
+  }
+
+  async deletePostImagesByPostId(postId: string): Promise<void> {
+    await this.db.postImage.deleteMany({
+      where: {
+        postId
+      }
+    })
+  }
+
+  async updatePostImage(imageId: string, s3Key: string): Promise<PostImageDTO> {
+    const image = await this.db.postImage.update({
+      where: {
+        id: imageId
+      },
+      data: {
+        s3Key
+      }
+    })
+    
+    return this.mapPostImageToDTO(image)
   }
 }

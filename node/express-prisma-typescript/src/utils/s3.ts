@@ -61,7 +61,7 @@ export const getPublicUrl = (key: string): string => {
  * @returns A unique key for the user's profile picture
  */
 export const generateProfilePictureKey = (userId: string, fileExt: string): string => {
-  return `users/${userId}/profile${fileExt}`
+  return `profile-pictures/${userId}/profile${fileExt}`
 }
 
 /**
@@ -73,4 +73,59 @@ export const generateProfilePictureKey = (userId: string, fileExt: string): stri
  */
 export const generatePostPictureKey = (postId: string, index: number, fileExt: string): string => {
   return `posts/${postId}/${index}${fileExt}`
-} 
+}
+
+/**
+ * Check if a user has access to view an image from another user's post
+ * @param viewerId The ID of the user trying to view the image
+ * @param authorId The ID of the user who posted the image
+ * @param isPrivate Whether the author's account is private
+ * @param isFollowing Whether the viewer follows the author
+ * @returns Whether the viewer has access to the image
+ */
+export const hasAccessToPostImage = (
+  viewerId: string, 
+  authorId: string, 
+  isPrivate: boolean, 
+  isFollowing: boolean
+): boolean => {
+  // User can always view their own images
+  if (viewerId === authorId) return true
+  
+  // If author's account is private, viewer must be following them
+  if (isPrivate) return isFollowing
+  
+  // For public accounts, anyone can view images
+  return true
+}
+
+/**
+ * Get the appropriate URL for a post image
+ * @param key The S3 key of the image
+ * @param viewerId The ID of the user trying to view the image
+ * @param authorId The ID of the user who posted the image
+ * @param isPrivate Whether the author's account is private
+ * @param isFollowing Whether the viewer follows the author
+ * @returns A pre-signed download URL if the viewer has access, null otherwise
+ */
+export const getPostImageUrl = async (
+  key: string,
+  viewerId: string,
+  authorId: string,
+  isPrivate: boolean,
+  isFollowing: boolean
+): Promise<string | null> => {
+  if (hasAccessToPostImage(viewerId, authorId, isPrivate, isFollowing)) {
+    return await generateDownloadUrl(key)
+  }
+  return null
+}
+
+/**
+ * Get the URL for a profile picture
+ * @param key The S3 key of the profile picture
+ * @returns The public URL of the profile picture
+ */
+export const getProfilePictureUrl = (key: string): string => {
+  return getPublicUrl(key)
+}

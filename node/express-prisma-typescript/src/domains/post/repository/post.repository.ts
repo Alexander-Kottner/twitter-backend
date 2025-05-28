@@ -1,5 +1,5 @@
 import { CursorPagination } from '@types'
-import { CreatePostInputDTO, PostDTO } from '../dto'
+import { CreatePostImageDTO, CreatePostInputDTO, PostDTO, PostImageDTO } from '../dto'
 
 export interface PostRepository {
   create: (userId: string, data: CreatePostInputDTO) => Promise<PostDTO>
@@ -13,5 +13,11 @@ export interface PostRepository {
   getCommentsByParentId: (parentId: string) => Promise<PostDTO[]>
   getCommentsByParentIdPaginated: (parentId: string, options: CursorPagination) => Promise<PostDTO[]>
   getCommentsByUserId: (userId: string) => Promise<PostDTO[]>
-  updateImages: (postId: string, images: string[]) => Promise<PostDTO>
+  
+  // New methods for handling post images
+  createPostImage: (data: CreatePostImageDTO) => Promise<PostImageDTO>
+  getPostImagesByPostId: (postId: string) => Promise<PostImageDTO[]>
+  deletePostImage: (imageId: string) => Promise<void>
+  deletePostImagesByPostId: (postId: string) => Promise<void>
+  updatePostImage: (imageId: string, s3Key: string) => Promise<PostImageDTO>
 }
