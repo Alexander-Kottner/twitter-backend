@@ -34,6 +34,10 @@ model User {
   follows   Follow[] @relation(name: "follows")
   followers Follow[] @relation(name: "followers")
   reactions Reaction[]
+  
+  // Chat relations
+  chatRoomMembers ChatRoomMember[]
+  sentMessages    Message[]
 }
 
 model Follow {
@@ -110,4 +114,78 @@ model Reaction {
 enum ReactionType {
   LIKE
   RETWEET
+}
+
+enum ChatRoomType {
+  DM
+  GROUP
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+}
+
+// Chat Models
+model ChatRoom {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid // Primary Key
+
+  name String? @db.VarChar(100) // Optional name for group chats
+  type ChatRoomType @default(DM) // DM or GROUP
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // Optional value
+
+  members  ChatRoomMember[]
+  messages Message[]
+
+  @@index([type, createdAt(sort: Desc)])
+  @@index([updatedAt(sort: Desc)])
+}
+
+model ChatRoomMember {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid // Primary Key
+
+  chatRoomId String @db.Uuid // Foreign Key
+  userId     String @db.Uuid // Foreign Key
+  joinedAt   DateTime @default(now())
+  lastReadAt DateTime? // Track read status for unread counts
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // Optional value
+
+  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatRoomId, userId]) // Ensure unique membership
+  @@index([userId, joinedAt(sort: Desc)])
+  @@index([chatRoomId, lastReadAt])
+}
+
+model Message {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid // Primary Key
+
+  chatRoomId String @db.Uuid // Foreign Key
+  authorId   String @db.Uuid // Foreign Key
+  content    String @db.VarChar(1000) // Message content (encrypted if isEncrypted is true)
+  type       MessageType @default(TEXT) // TEXT, IMAGE, FILE
+  
+  // Encryption fields
+  isEncrypted Boolean @default(false) // Flag to indicate if message is encrypted
+  iv          String? @db.VarChar(32) // Initialization vector for encryption (hex string)
+  tag         String? @db.VarChar(32) // Authentication tag for GCM mode (hex string)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // Optional value
+
+  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([chatRoomId, createdAt(sort: Desc)])
+  @@index([authorId, createdAt(sort: Desc)])
+  @@index([chatRoomId, authorId, createdAt(sort: Desc)])
 }

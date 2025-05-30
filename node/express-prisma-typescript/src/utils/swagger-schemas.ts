@@ -123,6 +123,186 @@
  *           format: date-time
  *           description: Fecha de creación del seguimiento
  *
+ *     ChatRoom:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *           description: ID único del chat room
+ *         name:
+ *           type: string
+ *           nullable: true
+ *           maxLength: 100
+ *           description: Nombre del chat (solo para chats grupales)
+ *         type:
+ *           type: string
+ *           enum: [DM, GROUP]
+ *           description: Tipo de chat (DM para mensajes directos, GROUP para grupos)
+ *         members:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/ChatRoomMember'
+ *           description: Lista de miembros del chat
+ *         lastMessage:
+ *           $ref: '#/components/schemas/Message'
+ *           nullable: true
+ *           description: Último mensaje enviado en el chat
+ *         unreadCount:
+ *           type: integer
+ *           description: Número de mensajes no leídos para el usuario actual
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Fecha de creación del chat
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Fecha de última actualización
+ *
+ *     ChatRoomMember:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *           description: ID único de la membresía
+ *         chatRoomId:
+ *           type: string
+ *           format: uuid
+ *           description: ID del chat room
+ *         userId:
+ *           type: string
+ *           format: uuid
+ *           description: ID del usuario miembro
+ *         user:
+ *           $ref: '#/components/schemas/User'
+ *           description: Información del usuario miembro
+ *         joinedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Fecha en que se unió al chat
+ *         lastReadAt:
+ *           type: string
+ *           format: date-time
+ *           nullable: true
+ *           description: Fecha del último mensaje leído
+ *
+ *     Message:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *           description: ID único del mensaje
+ *         chatRoomId:
+ *           type: string
+ *           format: uuid
+ *           description: ID del chat room donde se envió el mensaje
+ *         authorId:
+ *           type: string
+ *           format: uuid
+ *           description: ID del autor del mensaje
+ *         author:
+ *           $ref: '#/components/schemas/User'
+ *           description: Información del autor del mensaje
+ *         content:
+ *           type: string
+ *           maxLength: 1000
+ *           description: Contenido del mensaje (desencriptado)
+ *         type:
+ *           type: string
+ *           enum: [TEXT, IMAGE, FILE]
+ *           description: Tipo de mensaje
+ *         isEncrypted:
+ *           type: boolean
+ *           description: Indica si el mensaje está encriptado en la base de datos
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Fecha de creación del mensaje
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Fecha de última actualización
+ *
+ *     MessageResponse:
+ *       type: object
+ *       properties:
+ *         message:
+ *           $ref: '#/components/schemas/Message'
+ *         chatRoom:
+ *           type: object
+ *           properties:
+ *             id:
+ *               type: string
+ *               format: uuid
+ *             name:
+ *               type: string
+ *               nullable: true
+ *             type:
+ *               type: string
+ *               enum: [DM, GROUP]
+ *
+ *     CreateDMRequest:
+ *       type: object
+ *       required:
+ *         - targetUserId
+ *       properties:
+ *         targetUserId:
+ *           type: string
+ *           format: uuid
+ *           description: ID del usuario con quien crear el DM
+ *
+ *     CreateGroupChatRequest:
+ *       type: object
+ *       required:
+ *         - memberIds
+ *       properties:
+ *         name:
+ *           type: string
+ *           maxLength: 100
+ *           description: Nombre del grupo (opcional)
+ *         memberIds:
+ *           type: array
+ *           items:
+ *             type: string
+ *             format: uuid
+ *           description: Lista de IDs de usuarios para agregar al grupo
+ *
+ *     SendMessageRequest:
+ *       type: object
+ *       required:
+ *         - content
+ *       properties:
+ *         content:
+ *           type: string
+ *           minLength: 1
+ *           maxLength: 1000
+ *           description: Contenido del mensaje
+ *         type:
+ *           type: string
+ *           enum: [TEXT, IMAGE, FILE]
+ *           default: TEXT
+ *           description: Tipo de mensaje
+ *
+ *     ChatError:
+ *       type: object
+ *       properties:
+ *         error:
+ *           type: object
+ *           properties:
+ *             code:
+ *               type: string
+ *               description: Código de error específico
+ *             message:
+ *               type: string
+ *               description: Mensaje de error
+ *             timestamp:
+ *               type: string
+ *               format: date-time
+ *               description: Timestamp del error
+ *
  *     Error:
  *       type: object
  *       properties:
@@ -132,4 +312,25 @@
  *         statusCode:
  *           type: integer
  *           description: Código de estado HTTP
- */ 
+ *
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ *       description: Token JWT para autenticación
+ *
+ * tags:
+ *   - name: Chat
+ *     description: Endpoints para gestión de chats y mensajería en tiempo real
+ *   - name: Messages
+ *     description: Endpoints para gestión de mensajes
+ *   - name: Users
+ *     description: Gestión de usuarios
+ *   - name: Posts
+ *     description: Gestión de posts y contenido
+ *   - name: Reactions
+ *     description: Gestión de reacciones (likes, retweets)
+ *   - name: Followers
+ *     description: Gestión de seguimientos entre usuarios
+ */

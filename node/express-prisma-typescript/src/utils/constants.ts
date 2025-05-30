@@ -27,5 +27,5 @@ export class Constants {
   static CORS_WHITELIST: string = process.env.CORS_WHITELIST ?? '*'
 
   // Authentication secret
-  static TOKEN_SECRET: string = process.env.TOKEN_SECRET ?? 'secret'
+  static TOKEN_SECRET: string = process.env.JWT_SECRET ?? 'secret'
 }

@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Chat Test (Multi-User)</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto auto;
+            gap: 20px;
+        }
+        .user-panel {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .user-panel h2 {
+            margin-top: 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #007bff;
+        }
+        .user-a h2 { border-bottom-color: #007bff; } /* Blue */
+        .user-b h2 { border-bottom-color: #28a745; } /* Green */
+        .user-c h2 { border-bottom-color: #dc3545; } /* Red */
+        .user-d h2 { border-bottom-color: #6c757d; } /* Gray */
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea, button, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .user-b button {
+            background-color: #28a745;
+        }
+        .user-b button:hover {
+            background-color: #1e7e34;
+        }
+        .user-c button {
+            background-color: #dc3545;
+        }
+        .user-c button:hover {
+            background-color: #bd2130;
+        }
+        .user-d button {
+            background-color: #6c757d;
+        }
+        .user-d button:hover {
+            background-color: #5a6268;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .messages {
+            height: 250px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f8f9fa;
+            margin-bottom: 15px;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            background-color: white;
+            border-left: 3px solid #007bff;
+        }
+        .message.own {
+            background-color: #e3f2fd;
+            border-left-color: #2196f3;
+        }
+        .message.system {
+            background-color: #fff3cd;
+            border-left-color: #ffc107;
+            font-style: italic;
+        }
+        .message.error {
+            background-color: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+        .message .timestamp {
+            font-size: 0.8em;
+            color: #666;
+            float: right;
+        }
+        
+        .typing-indicator {
+            font-style: italic;
+            color: #666;
+            padding: 5px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .controls button {
+            flex: 1;
+        }
+        
+        .room-info {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+        
+        .demo-tokens {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+            grid-column: 1 / span 2;
+        }
+        .demo-tokens h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+        .demo-tokens code {
+            background-color: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        
+        .room-selection {
+            margin-bottom: 15px;
+        }
+        
+        .test-scenario {
+            background-color: #e2f0fb;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-tokens">
+        <h3>⚠️ Multi-User Chat Test Setup</h3>
+        <p><strong>This enhanced version supports 4 users for testing multiple scenarios:</strong></p>
+        <ul>
+            <li><strong>User A (blue)</strong> - Can chat with both B and C</li>
+            <li><strong>User B (green)</strong> - Can chat only with A</li>
+            <li><strong>User C (red)</strong> - Can chat only with A</li>
+            <li><strong>User D (gray)</strong> - Used to test unauthorized room access</li>
+        </ul>
+        <p><strong>Test Scenarios:</strong></p>
+        <div class="test-scenario">
+            <h4>Scenario 1: Basic Chat Room AB</h4>
+            <p>Connect users A and B, join them to Room AB, and verify messages exchange.</p>
+        </div>
+        <div class="test-scenario">
+            <h4>Scenario 2: Parallel Conversations</h4>
+            <p>While A and B chat in Room AB, user A can also chat with user C in Room AC.</p>
+        </div>
+        <div class="test-scenario">
+            <h4>Scenario 3: Unauthorized Access</h4>
+            <p>User D will try to join rooms AB and AC but should be denied access.</p>
+        </div>
+        <div class="test-scenario">
+            <h4>Scenario 4: Unread Messages</h4>
+            <p>User A can switch between rooms AB and AC to test unread message counting.</p>
+        </div>
+        
+        <p><strong>Before testing:</strong></p>
+        <ol>
+            <li>Make sure your server is running on <code>http://localhost:8080</code></li>
+            <li>Create 4 users via <code>POST /api/auth/signup</code></li>
+            <li>Create Room AB via <code>POST /api/chat/rooms</code> with users A and B</li>
+            <li>Create Room AC via <code>POST /api/chat/rooms</code> with users A and C</li>
+            <li>Get JWT tokens for all users via <code>POST /api/auth/login</code></li>
+            <li>User D should not be a member of any room</li>
+        </ol>
+    </div>
+
+    <div class="container">
+        <!-- User A Panel -->
+        <div class="user-panel user-a">
+            <h2>👤 User A (Blue)</h2>
+            
+            <div id="statusA" class="status disconnected">Disconnected</div>
+            
+            <div class="form-group">
+                <label for="serverUrlA">Server URL:</label>
+                <input type="text" id="serverUrlA" value="http://localhost:8080" placeholder="http://localhost:8080">
+            </div>
+            
+            <div class="form-group">
+                <label for="tokenA">JWT Token:</label>
+                <input type="text" id="tokenA" placeholder="Enter JWT token for User A">
+            </div>
+            
+            <div class="form-group">
+                <label for="userIdA">User ID:</label>
+                <input type="text" id="userIdA" placeholder="Enter User ID (UUID format)">
+            </div>
+            
+            <div class="room-selection">
+                <label for="roomSelectA">Select Room:</label>
+                <select id="roomSelectA" disabled>
+                    <option value="">Select a room...</option>
+                    <option value="AB">Room AB (with User B)</option>
+                    <option value="AC">Room AC (with User C)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="roomIdA">Current Room ID:</label>
+                <input type="text" id="roomIdA" placeholder="Enter Chat Room ID (UUID format)">
+            </div>
+            
+            <div class="controls">
+                <button onclick="connectUser('A')" id="connectBtnA">Connect</button>
+                <button onclick="disconnectUser('A')" id="disconnectBtnA" disabled>Disconnect</button>
+            </div>
+            
+            <div class="controls">
+                <button onclick="joinRoom('A')" id="joinBtnA" disabled>Join Room</button>
+                <button onclick="leaveRoom('A')" id="leaveBtnA" disabled>Leave Room</button>
+            </div>
+            
+            <div class="room-info" id="roomInfoA" style="display: none;">
+                <strong>Room:</strong> <span id="currentRoomA">None</span><br>
+                <strong>Status:</strong> <span id="roomStatusA">Not joined</span>
+            </div>
+            
+            <div class="messages" id="messagesA"></div>
+            
+            <div id="typingIndicatorA" class="typing-indicator" style="display: none;">
+                Other user is typing...
+            </div>
+            
+            <div class="form-group">
+                <textarea id="messageInputA" placeholder="Type your message..." rows="3" 
+                          oninput="handleTyping('A')" onkeypress="handleKeyPress(event, 'A')" disabled></textarea>
+                <button onclick="sendMessage('A')" id="sendBtnA" disabled>Send Message</button>
+            </div>
+        </div>
+
+        <!-- User B Panel -->
+        <div class="user-panel user-b">
+            <h2>👤 User B (Green)</h2>
+            
+            <div id="statusB" class="status disconnected">Disconnected</div>
+            
+            <div class="form-group">
+                <label for="serverUrlB">Server URL:</label>
+                <input type="text" id="serverUrlB" value="http://localhost:8080" placeholder="http://localhost:8080">
+            </div>
+            
+            <div class="form-group">
+                <label for="tokenB">JWT Token:</label>
+                <input type="text" id="tokenB" placeholder="Enter JWT token for User B">
+            </div>
+            
+            <div class="form-group">
+                <label for="userIdB">User ID:</label>
+                <input type="text" id="userIdB" placeholder="Enter User ID (UUID format)">
+            </div>
+            
+            <div class="room-selection">
+                <label for="roomSelectB">Select Room:</label>
+                <select id="roomSelectB" disabled>
+                    <option value="">Select a room...</option>
+                    <option value="AB">Room AB (with User A)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="roomIdB">Current Room ID:</label>
+                <input type="text" id="roomIdB" placeholder="Enter Chat Room ID (UUID format)">
+            </div>
+            
+            <div class="controls">
+                <button onclick="connectUser('B')" id="connectBtnB">Connect</button>
+                <button onclick="disconnectUser('B')" id="disconnectBtnB" disabled>Disconnect</button>
+            </div>
+            
+            <div class="controls">
+                <button onclick="joinRoom('B')" id="joinBtnB" disabled>Join Room</button>
+                <button onclick="leaveRoom('B')" id="leaveBtnB" disabled>Leave Room</button>
+            </div>
+            
+            <div class="room-info" id="roomInfoB" style="display: none;">
+                <strong>Room:</strong> <span id="currentRoomB">None</span><br>
+                <strong>Status:</strong> <span id="roomStatusB">Not joined</span>
+            </div>
+            
+            <div class="messages" id="messagesB"></div>
+            
+            <div id="typingIndicatorB" class="typing-indicator" style="display: none;">
+                Other user is typing...
+            </div>
+            
+            <div class="form-group">
+                <textarea id="messageInputB" placeholder="Type your message..." rows="3" 
+                          oninput="handleTyping('B')" onkeypress="handleKeyPress(event, 'B')" disabled></textarea>
+                <button onclick="sendMessage('B')" id="sendBtnB" disabled>Send Message</button>
+            </div>
+        </div>
+
+        <!-- User C Panel -->
+        <div class="user-panel user-c">
+            <h2>👤 User C (Red)</h2>
+            
+            <div id="statusC" class="status disconnected">Disconnected</div>
+            
+            <div class="form-group">
+                <label for="serverUrlC">Server URL:</label>
+                <input type="text" id="serverUrlC" value="http://localhost:8080" placeholder="http://localhost:8080">
+            </div>
+            
+            <div class="form-group">
+                <label for="tokenC">JWT Token:</label>
+                <input type="text" id="tokenC" placeholder="Enter JWT token for User C">
+            </div>
+            
+            <div class="form-group">
+                <label for="userIdC">User ID:</label>
+                <input type="text" id="userIdC" placeholder="Enter User ID (UUID format)">
+            </div>
+            
+            <div class="room-selection">
+                <label for="roomSelectC">Select Room:</label>
+                <select id="roomSelectC" disabled>
+                    <option value="">Select a room...</option>
+                    <option value="AC">Room AC (with User A)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="roomIdC">Current Room ID:</label>
+                <input type="text" id="roomIdC" placeholder="Enter Chat Room ID (UUID format)">
+            </div>
+            
+            <div class="controls">
+                <button onclick="connectUser('C')" id="connectBtnC">Connect</button>
+                <button onclick="disconnectUser('C')" id="disconnectBtnC" disabled>Disconnect</button>
+            </div>
+            
+            <div class="controls">
+                <button onclick="joinRoom('C')" id="joinBtnC" disabled>Join Room</button>
+                <button onclick="leaveRoom('C')" id="leaveBtnC" disabled>Leave Room</button>
+            </div>
+            
+            <div class="room-info" id="roomInfoC" style="display: none;">
+                <strong>Room:</strong> <span id="currentRoomC">None</span><br>
+                <strong>Status:</strong> <span id="roomStatusC">Not joined</span>
+            </div>
+            
+            <div class="messages" id="messagesC"></div>
+            
+            <div id="typingIndicatorC" class="typing-indicator" style="display: none;">
+                Other user is typing...
+            </div>
+            
+            <div class="form-group">
+                <textarea id="messageInputC" placeholder="Type your message..." rows="3" 
+                          oninput="handleTyping('C')" onkeypress="handleKeyPress(event, 'C')" disabled></textarea>
+                <button onclick="sendMessage('C')" id="sendBtnC" disabled>Send Message</button>
+            </div>
+        </div>
+
+        <!-- User D Panel (Unauthorized) -->
+        <div class="user-panel user-d">
+            <h2>👤 User D (Gray) - Unauthorized</h2>
+            
+            <div id="statusD" class="status disconnected">Disconnected</div>
+            
+            <div class="form-group">
+                <label for="serverUrlD">Server URL:</label>
+                <input type="text" id="serverUrlD" value="http://localhost:8080" placeholder="http://localhost:8080">
+            </div>
+            
+            <div class="form-group">
+                <label for="tokenD">JWT Token:</label>
+                <input type="text" id="tokenD" placeholder="Enter JWT token for User D">
+            </div>
+            
+            <div class="form-group">
+                <label for="userIdD">User ID:</label>
+                <input type="text" id="userIdD" placeholder="Enter User ID (UUID format)">
+            </div>
+            
+            <div class="room-selection">
+                <label for="roomSelectD">Select Room to Try:</label>
+                <select id="roomSelectD" disabled>
+                    <option value="">Select a room...</option>
+                    <option value="AB">Room AB (unauthorized)</option>
+                    <option value="AC">Room AC (unauthorized)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="roomIdD">Current Room ID:</label>
+                <input type="text" id="roomIdD" placeholder="Enter Chat Room ID (UUID format)">
+            </div>
+            
+            <div class="controls">
+                <button onclick="connectUser('D')" id="connectBtnD">Connect</button>
+                <button onclick="disconnectUser('D')" id="disconnectBtnD" disabled>Disconnect</button>
+            </div>
+            
+            <div class="controls">
+                <button onclick="joinRoom('D')" id="joinBtnD" disabled>Try Join Room</button>
+                <button onclick="leaveRoom('D')" id="leaveBtnD" disabled>Leave Room</button>
+            </div>
+            
+            <div class="room-info" id="roomInfoD" style="display: none;">
+                <strong>Room:</strong> <span id="currentRoomD">None</span><br>
+                <strong>Status:</strong> <span id="roomStatusD">Not joined</span>
+            </div>
+            
+            <div class="messages" id="messagesD"></div>
+            
+            <div id="typingIndicatorD" class="typing-indicator" style="display: none;">
+                Other user is typing...
+            </div>
+            
+            <div class="form-group">
+                <textarea id="messageInputD" placeholder="Type your message..." rows="3" 
+                          oninput="handleTyping('D')" onkeypress="handleKeyPress(event, 'D')" disabled></textarea>
+                <button onclick="sendMessage('D')" id="sendBtnD" disabled>Send Message</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Room IDs mapped by name
+        const roomIds = {
+            AB: "",
+            AC: ""
+        };
+        
+        // Socket connections for each user
+        const sockets = {
+            A: null,
+            B: null,
+            C: null,
+            D: null
+        };
+        
+        // Track if users are in rooms
+        const userInRoom = {
+            A: false,
+            B: false,
+            C: false,
+            D: false
+        };
+        
+        // Track typing state and timers
+        const typingState = {
+            A: { isTyping: false, timer: null },
+            B: { isTyping: false, timer: null },
+            C: { isTyping: false, timer: null },
+            D: { isTyping: false, timer: null }
+        };
+        
+        // Initialize by setting up room selection handlers
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up room selection handlers
+            document.getElementById('roomSelectA').addEventListener('change', function() {
+                const roomName = this.value;
+                if (roomName) {
+                    document.getElementById('roomIdA').value = roomIds[roomName] || '';
+                }
+            });
+            
+            document.getElementById('roomSelectB').addEventListener('change', function() {
+                const roomName = this.value;
+                if (roomName) {
+                    document.getElementById('roomIdB').value = roomIds[roomName] || '';
+                }
+            });
+            
+            document.getElementById('roomSelectC').addEventListener('change', function() {
+                const roomName = this.value;
+                if (roomName) {
+                    document.getElementById('roomIdC').value = roomIds[roomName] || '';
+                }
+            });
+            
+            document.getElementById('roomSelectD').addEventListener('change', function() {
+                const roomName = this.value;
+                if (roomName) {
+                    document.getElementById('roomIdD').value = roomIds[roomName] || '';
+                }
+            });
+            
+            // Manual input handlers to keep room IDs in sync
+            document.getElementById('roomIdA').addEventListener('input', function() {
+                updateRoomId('AB', this.value);
+            });
+            
+            document.getElementById('roomIdB').addEventListener('input', function() {
+                updateRoomId('AB', this.value);
+            });
+            
+            document.getElementById('roomIdC').addEventListener('input', function() {
+                updateRoomId('AC', this.value);
+            });
+        });
+        
+        function updateRoomId(roomName, value) {
+            roomIds[roomName] = value;
+            
+            // Update all selectors with this room name
+            if (roomName === 'AB') {
+                if (document.getElementById('roomSelectA').value === 'AB') {
+                    document.getElementById('roomIdA').value = value;
+                }
+                if (document.getElementById('roomSelectB').value === 'AB') {
+                    document.getElementById('roomIdB').value = value;
+                }
+                if (document.getElementById('roomSelectD').value === 'AB') {
+                    document.getElementById('roomIdD').value = value;
+                }
+            } else if (roomName === 'AC') {
+                if (document.getElementById('roomSelectA').value === 'AC') {
+                    document.getElementById('roomIdA').value = value;
+                }
+                if (document.getElementById('roomSelectC').value === 'AC') {
+                    document.getElementById('roomIdC').value = value;
+                }
+                if (document.getElementById('roomSelectD').value === 'AC') {
+                    document.getElementById('roomIdD').value = value;
+                }
+            }
+        }
+
+        // Utility functions
+        function addMessage(user, message, type = 'received', isOwn = false) {
+            const messagesDiv = document.getElementById(`messages${user}`);
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isOwn ? 'own' : ''} ${type === 'system' ? 'system' : ''} ${type === 'error' ? 'error' : ''}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            messageDiv.innerHTML = `
+                <div class="timestamp">${timestamp}</div>
+                <div>${message}</div>
+            `;
+            
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function updateStatus(user, connected) {
+            const statusDiv = document.getElementById(`status${user}`);
+            statusDiv.className = `status ${connected ? 'connected' : 'disconnected'}`;
+            statusDiv.textContent = connected ? 'Connected' : 'Disconnected';
+        }
+
+        function updateButtons(user, connected, inRoom) {
+            document.getElementById(`connectBtn${user}`).disabled = connected;
+            document.getElementById(`disconnectBtn${user}`).disabled = !connected;
+            document.getElementById(`joinBtn${user}`).disabled = !connected || inRoom;
+            document.getElementById(`leaveBtn${user}`).disabled = !connected || !inRoom;
+            document.getElementById(`messageInput${user}`).disabled = !connected || !inRoom;
+            document.getElementById(`sendBtn${user}`).disabled = !connected || !inRoom;
+            document.getElementById(`roomSelect${user}`).disabled = !connected;
+        }
+
+        function updateRoomInfo(user, roomId, inRoom) {
+            const roomInfoDiv = document.getElementById(`roomInfo${user}`);
+            const currentRoomSpan = document.getElementById(`currentRoom${user}`);
+            const roomStatusSpan = document.getElementById(`roomStatus${user}`);
+            
+            if (roomId) {
+                roomInfoDiv.style.display = 'block';
+                currentRoomSpan.textContent = roomId.substring(0, 8) + '...';
+                roomStatusSpan.textContent = inRoom ? 'Joined' : 'Not joined';
+            } else {
+                roomInfoDiv.style.display = 'none';
+            }
+        }
+
+        // Connect function for any user
+        function connectUser(user) {
+            const serverUrl = document.getElementById(`serverUrl${user}`).value;
+            const token = document.getElementById(`token${user}`).value;
+            const userId = document.getElementById(`userId${user}`).value;
+
+            if (!token || !userId) {
+                alert(`Please enter both JWT token and User ID for User ${user}`);
+                return;
+            }
+
+            sockets[user] = io(serverUrl, {
+                auth: {
+                    token: token
+                },
+                transports: ['websocket', 'polling']
+            });
+
+            sockets[user].on('connect', () => {
+                updateStatus(user, true);
+                updateButtons(user, true, userInRoom[user]);
+                addMessage(user, 'Connected to server', 'system');
+            });
+
+            sockets[user].on('disconnect', () => {
+                updateStatus(user, false);
+                updateButtons(user, false, false);
+                userInRoom[user] = false;
+                updateRoomInfo(user, null, false);
+                addMessage(user, 'Disconnected from server', 'system');
+            });
+
+            sockets[user].on('joined_room', (data) => {
+                userInRoom[user] = true;
+                updateButtons(user, true, true);
+                updateRoomInfo(user, data.chatRoomId, true);
+                addMessage(user, `Joined room: ${data.chatRoomId}`, 'system');
+            });
+
+            sockets[user].on('left_room', (data) => {
+                userInRoom[user] = false;
+                updateButtons(user, true, false);
+                updateRoomInfo(user, data.chatRoomId, false);
+                addMessage(user, `Left room: ${data.chatRoomId}`, 'system');
+            });
+
+            sockets[user].on('user_joined', (data) => {
+                addMessage(user, 'Another user joined the room', 'system');
+            });
+
+            sockets[user].on('user_left', (data) => {
+                addMessage(user, 'Another user left the room', 'system');
+            });
+
+            sockets[user].on('new_message', (data) => {
+                const isOwn = data.message.authorId === userId;
+                addMessage(user, `<strong>${isOwn ? 'You' : 'Other user'}:</strong> ${data.message.content}`, 'received', isOwn);
+            });
+
+            sockets[user].on('typing_status', (data) => {
+                const indicator = document.getElementById(`typingIndicator${user}`);
+                if (data.isTyping) {
+                    indicator.style.display = 'block';
+                } else {
+                    indicator.style.display = 'none';
+                }
+            });
+
+            sockets[user].on('unread_count_updated', (data) => {
+                addMessage(user, `Unread count updated: ${data.unreadCount}`, 'system');
+            });
+
+            sockets[user].on('error', (error) => {
+                addMessage(user, `Error: ${error.message || error}`, 'error');
+                console.error(`Socket error for User ${user}:`, error);
+            });
+
+            sockets[user].on('connect_error', (error) => {
+                addMessage(user, `Connection error: ${error.message}`, 'error');
+                updateStatus(user, false);
+                updateButtons(user, false, false);
+            });
+        }
+
+        // Disconnect function for any user
+        function disconnectUser(user) {
+            if (sockets[user]) {
+                sockets[user].disconnect();
+                sockets[user] = null;
+                userInRoom[user] = false;
+            }
+        }
+
+        // Join room function for any user
+        function joinRoom(user) {
+            const roomId = document.getElementById(`roomId${user}`).value;
+            if (!roomId || !sockets[user]) return;
+
+            sockets[user].emit('join_room', { chatRoomId: roomId });
+        }
+
+        // Leave room function for any user
+        function leaveRoom(user) {
+            const roomId = document.getElementById(`roomId${user}`).value;
+            if (!roomId || !sockets[user]) return;
+
+            sockets[user].emit('leave_room', { chatRoomId: roomId });
+        }
+
+        // Send message function for any user
+        function sendMessage(user) {
+            const messageInput = document.getElementById(`messageInput${user}`);
+            const roomId = document.getElementById(`roomId${user}`).value;
+            const message = messageInput.value.trim();
+
+            if (!message || !roomId || !sockets[user]) return;
+
+            const messageData = {
+                chatRoomId: roomId,
+                content: message,
+                type: 'TEXT',
+                messageId: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 9)
+            };
+
+            sockets[user].emit('send_message', messageData);
+            messageInput.value = '';
+        }
+
+        // Handle typing for any user
+        function handleTyping(user) {
+            const roomId = document.getElementById(`roomId${user}`).value;
+            if (!roomId || !sockets[user] || !userInRoom[user]) return;
+
+            if (!typingState[user].isTyping) {
+                typingState[user].isTyping = true;
+                sockets[user].emit('typing', { chatRoomId: roomId, isTyping: true });
+            }
+
+            clearTimeout(typingState[user].timer);
+            typingState[user].timer = setTimeout(() => {
+                typingState[user].isTyping = false;
+                sockets[user].emit('typing', { chatRoomId: roomId, isTyping: false });
+            }, 1000);
+        }
+
+        // Handle Enter key press for any user
+        function handleKeyPress(event, user) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage(user);
+            }
+        }
+    </script>
+</body>
+</html>
