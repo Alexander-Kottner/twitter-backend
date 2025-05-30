@@ -42,13 +42,14 @@ export class ChatService {
     return await this.messageService.getChatRoomMessages({ chatRoomId, limit, cursor }, userId)
   }
 
-  // Member Operations - CRITICAL FIX: Pass actual userId instead of chatRoomId
+  // Member Operations - CRITICAL FIX: Handle internal calls properly
   async getChatRoomMembers (chatRoomId: string, userId?: string): Promise<ChatRoomMemberDTO[]> {
     // If userId is not provided, this is an internal call from Socket.IO
-    // We'll skip validation for internal calls and directly access the repository
+    // We'll call the service method but bypass validation by using a special internal flag
     if (!userId) {
-      // For internal calls (e.g., from Socket.IO), bypass validation
-      return await this.chatRoomMemberService['chatRoomMemberRepository'].findByChatRoomId(chatRoomId)
+      // For internal calls, we need to use the service method with a bypass mechanism
+      // Since we can't access private repository directly, we'll modify the approach
+      return await this.chatRoomMemberService.getChatRoomMembers(chatRoomId, 'INTERNAL_BYPASS')
     }
     
     return await this.chatRoomMemberService.getChatRoomMembers(chatRoomId, userId)

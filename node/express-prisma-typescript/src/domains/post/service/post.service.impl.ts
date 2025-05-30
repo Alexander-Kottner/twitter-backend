@@ -499,9 +499,8 @@ export class PostServiceImpl implements PostService {
     // Get existing images for this post to make sure we don't exceed the limit
     const existingImages = await this.repository.getPostImagesByPostId(postId)
     
-    // If there's already an image at this index, we'll be replacing it
-    const existingImageAtIndex = existingImages.find(img => img.index === index)
-    if (!existingImageAtIndex && existingImages.length >= 4) {
+    // If all 4 slots are taken, don't allow any new uploads
+    if (existingImages.length >= 4) {
       throw new ForbiddenException('Maximum of 4 images per post allowed')
     }
     

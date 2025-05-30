@@ -38,8 +38,8 @@ export class ChatRoomMemberService {
     return await this.chatRoomMemberRepository.findByChatRoomId(chatRoomId)
   }
 
-  async updateLastRead (data: UpdateLastReadDTO): Promise<void> {
-    await this.chatRoomMemberRepository.updateLastRead(data)
+  async updateLastRead (data: UpdateLastReadDTO): Promise<ChatRoomMemberDTO> {
+    return await this.chatRoomMemberRepository.updateLastRead(data)
   }
 
   async leaveChatRoom (chatRoomId: string, userId: string): Promise<void> {

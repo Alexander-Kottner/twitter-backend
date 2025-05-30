@@ -12,7 +12,7 @@ const purify = DOMPurify(window as any)
 // Encryption configuration
 const ENCRYPTION_ALGORITHM = 'aes-256-gcm'
 const KEY_DERIVATION_ITERATIONS = 100000
-const IV_LENGTH = 16
+const IV_LENGTH = 12  // GCM mode requires 12 bytes (96 bits) for IV
 const TAG_LENGTH = 16
 
 export class MessageService {
@@ -39,8 +39,8 @@ export class MessageService {
       // Generate random initialization vector
       const iv = crypto.randomBytes(IV_LENGTH)
       
-      // Create cipher with correct method for GCM
-      const cipher = crypto.createCipher('aes-256-gcm', key)
+      // Create cipher with modern method for GCM
+      const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, key, iv)
       cipher.setAAD(Buffer.from(chatRoomId)) // Additional authenticated data
       
       // Encrypt content
@@ -71,8 +71,8 @@ export class MessageService {
       // Derive room-specific encryption key
       const key = this.deriveRoomKey(chatRoomId)
       
-      // Create decipher with correct method for GCM
-      const decipher = crypto.createDecipher('aes-256-gcm', key)
+      // Create decipher with modern method for GCM
+      const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, key, Buffer.from(iv, 'hex'))
       decipher.setAAD(Buffer.from(chatRoomId)) // Additional authenticated data
       decipher.setAuthTag(Buffer.from(tag, 'hex'))
       

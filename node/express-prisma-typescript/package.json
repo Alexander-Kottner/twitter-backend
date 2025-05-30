@@ -11,7 +11,11 @@
     "db:migrate": "prisma migrate deploy",
     "db:make-migrations": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "sync:reactions": "ts-node -r tsconfig-paths/register src/utils/sync-reaction-counts.ts"
+    "sync:reactions": "ts-node -r tsconfig-paths/register src/utils/sync-reaction-counts.ts",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:chat": "jest --testPathPattern=chat"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.816.0",
@@ -31,6 +35,7 @@
     "express-async-errors": "^3.1.1",
     "express-validator": "^7.2.1",
     "http-status": "^1.6.2",
+    "jest": "^29.7.0",
     "jsdom": "^26.1.0",
     "jsonwebtoken": "^9.0.2",
     "method-override": "^3.0.0",
@@ -40,10 +45,14 @@
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
+    "@babel/core": "^7.27.4",
+    "@babel/preset-env": "^7.27.2",
+    "@babel/preset-typescript": "^7.27.1",
     "@types/bcrypt": "^5.0.0",
     "@types/cookie-parser": "^1.4.3",
     "@types/cors": "^2.8.13",
     "@types/express": "^4.17.16",
+    "@types/jest": "^29.5.14",
     "@types/jsonwebtoken": "^9.0.1",
     "@types/method-override": "^0.0.32",
     "@types/morgan": "^1.9.4",
@@ -64,6 +73,7 @@
     "prisma": "^4.9.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
+    "ts-jest": "^29.3.4",
     "ts-node": "^10.9.1",
     "tsc-alias": "^1.8.2",
     "tsconfig-paths": "^4.1.2",
@@ -73,5 +83,55 @@
     "hooks": {
       "pre-commit": "eslint --fix && pretty-quick --staged"
     }
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup.ts"
+    ],
+    "roots": [
+      "<rootDir>/src"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.ts",
+      "**/?(*.)+(spec|test).ts"
+    ],
+    "transform": {
+      "^.+\\.ts$": [
+        "ts-jest",
+        {
+          "tsconfig": {
+            "experimentalDecorators": true,
+            "emitDecoratorMetadata": true,
+            "target": "es2018",
+            "module": "commonjs",
+            "esModuleInterop": true,
+            "allowSyntheticDefaultImports": true,
+            "strict": false,
+            "skipLibCheck": true
+          }
+        }
+      ]
+    },
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1",
+      "^@domains/(.*)$": "<rootDir>/src/domains/$1",
+      "^@utils$": "<rootDir>/src/utils/index.ts",
+      "^@utils/(.*)$": "<rootDir>/src/utils/$1",
+      "^@types$": "<rootDir>/src/types/index.ts",
+      "^@types/(.*)$": "<rootDir>/src/types/$1"
+    },
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/**/*.d.ts",
+      "!src/server.ts"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "html"
+    ]
   }
 }
