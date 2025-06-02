@@ -37,12 +37,23 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Install OpenSSL and curl for healthcheck
-RUN apt-get update -y && apt-get install -y openssl libssl3 ca-certificates curl && rm -rf /var/lib/apt/lists/*
+# Install OpenSSL, curl for healthcheck, and build dependencies for native modules
+RUN apt-get update -y && apt-get install -y \
+    openssl \
+    libssl3 \
+    ca-certificates \
+    curl \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install production dependencies
 COPY package.json yarn.lock ./
 RUN yarn install --production --frozen-lockfile
+
+# Rebuild native modules for the current architecture
+RUN yarn install --production --force
 
 # Copy built files and Prisma
 COPY --from=builder /app/dist ./dist
