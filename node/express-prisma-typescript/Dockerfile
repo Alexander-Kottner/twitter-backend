@@ -19,18 +19,29 @@ WORKDIR /app
 # Install OpenSSL and other required dependencies for Prisma
 RUN apt-get update -y && apt-get install -y openssl libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
 
+# Copy all necessary files for the build
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json yarn.lock ./
 COPY tsconfig.json ./
+COPY jest.setup.ts ./
+COPY nodemon.json ./
 COPY src ./src
 COPY prisma ./prisma
 
-# Generate Prisma client and build TypeScript
+# Generate Prisma client first
 RUN yarn db:generate
+
+# Build TypeScript - with verbose output to debug
 RUN yarn build
 
-# Verify the build output exists
-RUN ls -la dist/ && ls -la dist/server.js
+# Verify the build output exists and show contents
+RUN echo "=== Build verification ===" && \
+    ls -la . && \
+    echo "=== Checking dist directory ===" && \
+    ls -la dist/ && \
+    echo "=== Checking server.js ===" && \
+    ls -la dist/server.js && \
+    echo "=== Build complete ==="
 
 # Production runtime
 FROM node:lts-slim AS runner
@@ -51,8 +62,14 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
-# Verify the files are copied correctly
-RUN ls -la dist/ && ls -la dist/server.js
+# Verify the files are copied correctly to production stage
+RUN echo "=== Production verification ===" && \
+    ls -la . && \
+    echo "=== Checking dist directory ===" && \
+    ls -la dist/ && \
+    echo "=== Checking server.js ===" && \
+    ls -la dist/server.js && \
+    echo "=== Production setup complete ==="
 
 # Add non-root user for better security
 RUN addgroup --system --gid 1001 nodejs && \
