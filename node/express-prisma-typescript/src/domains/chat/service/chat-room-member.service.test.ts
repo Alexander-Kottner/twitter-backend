@@ -612,16 +612,26 @@ describe('ChatRoomMemberService', () => {
       const requesterId = 'user-2' // Different user who is a member
       const addMemberData = createMockAddMemberDTO({ chatRoomId, userId })
       
+      // Create a fixed date to ensure consistent timestamps
+      const fixedDate = new Date()
+      const mockMember = {
+        id: 'member-1',
+        chatRoomId,
+        userId,
+        joinedAt: fixedDate,
+        lastReadAt: fixedDate
+      }
+      
       mockChatRoomMemberRepository.isMember.mockResolvedValue(true) // Requester is a member
       mockChatRoomRepository.findById.mockResolvedValue(createMockChatRoom())
-      mockChatRoomMemberRepository.addMember.mockResolvedValue(createMockChatRoomMember(addMemberData))
+      mockChatRoomMemberRepository.addMember.mockResolvedValue(mockMember)
 
       // Act
       const result = await chatRoomMemberService.addMemberToChatRoom(addMemberData, requesterId)
 
       // Assert
       expect(mockChatRoomMemberRepository.addMember).toHaveBeenCalledWith(addMemberData)
-      expect(result).toEqual(createMockChatRoomMember(addMemberData))
+      expect(result).toEqual(mockMember)
     })
 
     it('should not allow self-removal from non-member state', async () => {
