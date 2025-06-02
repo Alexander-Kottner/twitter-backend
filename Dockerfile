@@ -1,69 +1,73 @@
-# Install dependencies
+# 1. Base layer for installing deps
 FROM node:18-slim AS deps
 
 WORKDIR /app
 
-# Install OpenSSL and other required dependencies for Prisma
-RUN apt-get update -y && apt-get install -y openssl libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -y && apt-get install -y \
+  openssl \
+  libssl3 \
+  ca-certificates \
+  python3 \
+  make \
+  g++ \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY package.json yarn.lock ./
+
+# Install all deps (not just prod) here so dev/build works
 RUN yarn install --frozen-lockfile
 
-# Build source code
+
+# 2. Builder layer
 FROM node:18-slim AS builder
 
 WORKDIR /app
 
-# Install OpenSSL and other required dependencies for Prisma
-RUN apt-get update -y && apt-get install -y openssl libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
+# Same build tools here
+RUN apt-get update -y && apt-get install -y \
+  openssl \
+  libssl3 \
+  ca-certificates \
+  python3 \
+  make \
+  g++ \
+  && rm -rf /var/lib/apt/lists/*
 
-# Copy dependencies and files needed for build
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json yarn.lock tsconfig.json jest.setup.ts nodemon.json ./
 COPY src ./src
 COPY prisma ./prisma
 
-# Generate Prisma client and build
+# Generate Prisma client & build project
 RUN yarn db:generate
 RUN yarn build
 
-# Ensure dist directory and server.js exist
-RUN test -f dist/server.js || (echo "Build failed: dist/server.js not found" && exit 1)
 
-# Production runtime
+# 3. Runtime layer
 FROM node:18-slim AS runner
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Install OpenSSL, curl for healthcheck, and build dependencies for native modules
 RUN apt-get update -y && apt-get install -y \
-    openssl \
-    libssl3 \
-    ca-certificates \
-    curl \
-    python3 \
-    make \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
+  openssl \
+  libssl3 \
+  ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
-# Install production dependencies
+# Copy only what’s needed
 COPY package.json yarn.lock ./
+
+# Install prod dependencies (this builds bcrypt natively in the container)
 RUN yarn install --production --frozen-lockfile
 
-# Rebuild native modules for the current architecture
-RUN yarn install --production --force
-
-# Copy built files and Prisma
+# Copy dist files and prisma
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
-# Final verification
-RUN test -f dist/server.js || (echo "server.js missing in production stage" && exit 1)
-
-# Add security user
+# Add unprivileged user
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nodeuser && \
     chown -R nodeuser:nodejs /app
@@ -71,20 +75,4 @@ USER nodeuser
 
 EXPOSE ${PORT:-3000}
 
-CMD ["yarn", "prod"]
-
-# Development runtime
-FROM node:18-slim AS dev
-
-WORKDIR /app
-
-# Install OpenSSL and other required dependencies for Prisma
-RUN apt-get update -y && apt-get install -y openssl libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
-
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/package.json ./
-COPY nodemon.json ./nodemon.json
-COPY tsconfig.json ./tsconfig.json
-COPY . .
-
-CMD yarn dev
+CMD ["node", "dist/server.js"]
