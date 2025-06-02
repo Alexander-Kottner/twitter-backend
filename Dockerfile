@@ -59,8 +59,10 @@ RUN apt-get update -y && apt-get install -y \
 # Copy only what’s needed
 COPY package.json yarn.lock ./
 
-# Install prod dependencies (this builds bcrypt natively in the container)
-RUN yarn install --production --frozen-lockfile
+# Create yarn cache directory and install prod dependencies
+RUN mkdir -p /tmp/.yarn-cache && \
+    yarn config set cache-folder /tmp/.yarn-cache && \
+    yarn install --production --frozen-lockfile
 
 # Copy dist files and prisma
 COPY --from=builder /app/dist ./dist
