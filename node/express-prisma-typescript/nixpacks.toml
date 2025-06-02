@@ -1,0 +1,15 @@
+[phases.setup]
+aptPkgs = [
+  "openssl",
+  "ca-certificates"
+]
+
+[phases.build]
+cmds = [
+  "yarn install --frozen-lockfile",
+  "yarn db:generate",
+  "yarn build"
+]
+
+[start]
+cmd = "yarn prod"

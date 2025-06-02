@@ -9,7 +9,6 @@
     "restartPolicyMaxRetries": 10,
     "startCommand": "yarn prod",
     "healthcheckPath": "/api/health",
-    "healthcheckTimeout": 300,
-    "healthcheckInterval": 30
+    "healthcheckTimeout": 300
   }
 }
