@@ -1,41 +1,74 @@
 # Install dependencies
-FROM node:18-bullseye AS deps
+FROM node:18-slim AS deps
 
 WORKDIR /app
 
-COPY package.json ./
-COPY yarn.lock ./
+# Install OpenSSL and other required dependencies for Prisma
+RUN apt-get update -y && apt-get install -y openssl libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
 
+COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile
 
 # Build source code
-FROM node:18-alpine AS builder
+FROM node:18-slim AS builder
 
 WORKDIR /app
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+# Install OpenSSL and other required dependencies for Prisma
+RUN apt-get update -y && apt-get install -y openssl libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
 
+# Copy dependencies and files needed for build
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json yarn.lock tsconfig.json jest.setup.ts nodemon.json ./
+COPY src ./src
+COPY prisma ./prisma
+
+# Generate Prisma client and build
 RUN yarn db:generate
 RUN yarn build
 
+# Ensure dist directory and server.js exist
+RUN test -f dist/server.js || (echo "Build failed: dist/server.js not found" && exit 1)
+
 # Production runtime
-FROM node:18-bullseye AS runner
+FROM node:18-slim AS runner
 
 WORKDIR /app
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma
+ENV NODE_ENV=production
+
+# Install OpenSSL and curl for healthcheck
+RUN apt-get update -y && apt-get install -y openssl libssl3 ca-certificates curl && rm -rf /var/lib/apt/lists/*
+
+# Install production dependencies
+COPY package.json yarn.lock ./
+RUN yarn install --production --frozen-lockfile
+
+# Copy built files and Prisma
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
-EXPOSE 8080
+# Final verification
+RUN test -f dist/server.js || (echo "server.js missing in production stage" && exit 1)
 
-CMD yarn prod
+# Add security user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nodeuser && \
+    chown -R nodeuser:nodejs /app
+USER nodeuser
+
+EXPOSE ${PORT:-3000}
+
+CMD ["yarn", "prod"]
 
 # Development runtime
-FROM node:18-bullseye AS dev
+FROM node:18-slim AS dev
 
 WORKDIR /app
+
+# Install OpenSSL and other required dependencies for Prisma
+RUN apt-get update -y && apt-get install -y openssl libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/package.json ./
