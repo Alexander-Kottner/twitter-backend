@@ -19,11 +19,11 @@ datasource db {
 model User {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid // Primary Key
 
-  username      String  @unique // Unique constraint
-  name          String? @db.VarChar(35) // Limit display name to 35 characters
-  email         String  @unique // Unique constraint
-  password      String
-  isPrivate     Boolean @default(false) // Flag to indicate if the profile is private
+  username       String  @unique // Unique constraint
+  name           String? @db.VarChar(35) // Limit display name to 35 characters
+  email          String  @unique // Unique constraint
+  password       String
+  isPrivate      Boolean @default(false) // Flag to indicate if the profile is private
   profilePicture String? // URL of the profile picture stored in S3
 
   createdAt DateTime  @default(now())
@@ -31,10 +31,10 @@ model User {
   deletedAt DateTime? // Optional value
 
   posts     Post[]
-  follows   Follow[] @relation(name: "follows")
-  followers Follow[] @relation(name: "followers")
+  follows   Follow[]   @relation(name: "follows")
+  followers Follow[]   @relation(name: "followers")
   reactions Reaction[]
-  
+
   // Chat relations
   chatRoomMembers ChatRoomMember[]
   sentMessages    Message[]
@@ -57,48 +57,48 @@ model Follow {
 model Post {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid // Primary Key
 
-  authorId String   @db.Uuid // Foreign Key
-  content  String   @db.VarChar(240) // Limit the content to 240 characters
-  
+  authorId String @db.Uuid // Foreign Key
+  content  String @db.VarChar(240) // Limit the content to 240 characters
+
   // Add parent-child relationship for comments
   parentId String? @db.Uuid // Optional parent post ID for comments
   parent   Post?   @relation("Comments", fields: [parentId], references: [id], onDelete: Cascade)
   comments Post[]  @relation("Comments")
-  
+
   // Add reaction count fields
   likeCount    Int @default(0)
   retweetCount Int @default(0)
-  
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime? // Optional value
 
-  author User @relation(fields: [authorId], references: [id], onDelete: Cascade) // One to many
+  author    User        @relation(fields: [authorId], references: [id], onDelete: Cascade) // One to many
   reactions Reaction[]
-  images PostImage[] // Relation to PostImage model
+  images    PostImage[] // Relation to PostImage model
 }
 
 model PostImage {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid // Primary Key
-  
+
   postId String @db.Uuid // Foreign Key to Post
-  s3Key String  // S3 key to access the image
-  index Int     // Index of the image (0-3) to maintain order
-  
+  s3Key  String // S3 key to access the image
+  index  Int // Index of the image (0-3) to maintain order
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime? // Optional value
-  
+
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade) // One to many
-  
+
   @@unique([postId, index]) // Ensure unique index per post
 }
 
 model Reaction {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid // Primary Key
 
-  userId String @db.Uuid // Foreign Key
-  postId String @db.Uuid // Foreign Key
+  userId String       @db.Uuid // Foreign Key
+  postId String       @db.Uuid // Foreign Key
   type   ReactionType
 
   createdAt DateTime  @default(now())
@@ -131,7 +131,7 @@ enum MessageType {
 model ChatRoom {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid // Primary Key
 
-  name String? @db.VarChar(100) // Optional name for group chats
+  name String?      @db.VarChar(100) // Optional name for group chats
   type ChatRoomType @default(DM) // DM or GROUP
 
   createdAt DateTime  @default(now())
@@ -148,9 +148,9 @@ model ChatRoom {
 model ChatRoomMember {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid // Primary Key
 
-  chatRoomId String @db.Uuid // Foreign Key
-  userId     String @db.Uuid // Foreign Key
-  joinedAt   DateTime @default(now())
+  chatRoomId String    @db.Uuid // Foreign Key
+  userId     String    @db.Uuid // Foreign Key
+  joinedAt   DateTime  @default(now())
   lastReadAt DateTime? // Track read status for unread counts
 
   createdAt DateTime  @default(now())
@@ -168,11 +168,11 @@ model ChatRoomMember {
 model Message {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid // Primary Key
 
-  chatRoomId String @db.Uuid // Foreign Key
-  authorId   String @db.Uuid // Foreign Key
-  content    String @db.VarChar(1000) // Message content (encrypted if isEncrypted is true)
+  chatRoomId String      @db.Uuid // Foreign Key
+  authorId   String      @db.Uuid // Foreign Key
+  content    String      @db.VarChar(1000) // Message content (encrypted if isEncrypted is true)
   type       MessageType @default(TEXT) // TEXT, IMAGE, FILE
-  
+
   // Encryption fields
   isEncrypted Boolean @default(false) // Flag to indicate if message is encrypted
   iv          String? @db.VarChar(32) // Initialization vector for encryption (hex string)
