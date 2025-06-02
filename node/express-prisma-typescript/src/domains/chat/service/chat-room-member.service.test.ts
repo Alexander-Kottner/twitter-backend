@@ -554,16 +554,26 @@ describe('ChatRoomMemberService', () => {
       const addMemberData = createMockAddMemberDTO()
       const requesterId = 'user-1'
       
+      // Create a fixed date for testing to avoid timing issues
+      const fixedDate = new Date('2025-06-02T13:41:20.948Z')
+      const mockMember = {
+        id: 'member-1',
+        chatRoomId: 'room-1',
+        userId: 'user-2',
+        joinedAt: fixedDate,
+        lastReadAt: fixedDate
+      }
+      
       mockChatRoomMemberRepository.isMember.mockResolvedValue(true)
       mockChatRoomRepository.findById.mockResolvedValue(createMockChatRoom())
-      mockChatRoomMemberRepository.addMember.mockResolvedValue(createMockChatRoomMember(addMemberData))
+      mockChatRoomMemberRepository.addMember.mockResolvedValue(mockMember)
 
       // Act
       const result = await chatRoomMemberService.addMemberToChatRoom(addMemberData, requesterId)
 
       // Assert
       expect(mockChatRoomMemberRepository.addMember).toHaveBeenCalledWith(addMemberData)
-      expect(result).toEqual(createMockChatRoomMember(addMemberData))
+      expect(result).toEqual(mockMember)
     })
 
     it('should not allow unauthorized member addition', async () => {
