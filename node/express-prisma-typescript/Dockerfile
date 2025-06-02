@@ -24,13 +24,29 @@ FROM node:18-slim AS runner
 
 WORKDIR /app
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma
+ENV NODE_ENV production
+
+# Install only production dependencies
+COPY package.json yarn.lock ./
+RUN yarn install --production --frozen-lockfile
+
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
 
-EXPOSE 8080
+# Add non-root user for better security
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nodeuser && \
+    chown -R nodeuser:nodejs /app
+USER nodeuser
 
-CMD yarn prod
+# Healthcheck to ensure the application is running
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 CMD curl -f http://localhost:${PORT:-3000}/api/health || exit 1
+
+# Expose the port
+EXPOSE ${PORT:-3000}
+
+# Run the application
+CMD ["yarn", "prod"]
 
 # Development runtime
 FROM node:18-slim AS dev
