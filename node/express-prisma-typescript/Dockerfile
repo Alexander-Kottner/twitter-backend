@@ -1,5 +1,5 @@
 # Install dependencies
-FROM node:18-slim AS deps
+FROM node:lts-slim AS deps
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ COPY yarn.lock ./
 RUN yarn install --frozen-lockfile
 
 # Build source code
-FROM node:18-slim AS builder
+FROM node:lts-slim AS builder
 
 WORKDIR /app
 
@@ -20,7 +20,7 @@ RUN yarn db:generate
 RUN yarn build
 
 # Production runtime
-FROM node:18-slim AS runner
+FROM node:lts-slim AS runner
 
 WORKDIR /app
 
@@ -49,7 +49,7 @@ EXPOSE ${PORT:-3000}
 CMD ["yarn", "prod"]
 
 # Development runtime
-FROM node:18-slim AS dev
+FROM node:lts-slim AS dev
 
 WORKDIR /app
 
