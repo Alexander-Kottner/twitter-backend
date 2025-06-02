@@ -9,9 +9,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: node/express-prisma-typescript
 
     steps:
       - name: Checkout repository
@@ -22,7 +19,6 @@ jobs:
         with:
           node-version: '18'
           cache: 'yarn'
-          cache-dependency-path: node/express-prisma-typescript/yarn.lock
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile
