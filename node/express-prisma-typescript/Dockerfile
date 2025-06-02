@@ -3,6 +3,9 @@ FROM node:lts-slim AS deps
 
 WORKDIR /app
 
+# Install OpenSSL and other required dependencies for Prisma
+RUN apt-get update -y && apt-get install -y openssl libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
+
 COPY package.json ./
 COPY yarn.lock ./
 
@@ -12,6 +15,9 @@ RUN yarn install --frozen-lockfile
 FROM node:lts-slim AS builder
 
 WORKDIR /app
+
+# Install OpenSSL and other required dependencies for Prisma
+RUN apt-get update -y && apt-get install -y openssl libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -25,6 +31,9 @@ FROM node:lts-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV production
+
+# Install OpenSSL and other required dependencies for Prisma
+RUN apt-get update -y && apt-get install -y openssl libssl3 ca-certificates curl && rm -rf /var/lib/apt/lists/*
 
 # Install only production dependencies
 COPY package.json yarn.lock ./
@@ -52,6 +61,9 @@ CMD ["yarn", "prod"]
 FROM node:lts-slim AS dev
 
 WORKDIR /app
+
+# Install OpenSSL and other required dependencies for Prisma
+RUN apt-get update -y && apt-get install -y openssl libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/package.json ./
