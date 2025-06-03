@@ -18,7 +18,34 @@ COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile
 
 
-# 2. Builder layer
+# 2. Development stage
+FROM node:18-slim AS dev
+
+WORKDIR /app
+
+RUN apt-get update -y && apt-get install -y \
+  openssl \
+  libssl3 \
+  ca-certificates \
+  python3 \
+  make \
+  g++ \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json yarn.lock tsconfig.json jest.setup.ts nodemon.json ./
+COPY src ./src
+COPY prisma ./prisma
+
+# Generate Prisma client
+RUN yarn db:generate
+
+EXPOSE ${PORT:-8080}
+
+CMD ["yarn", "dev"]
+
+
+# 3. Builder layer
 FROM node:18-slim AS builder
 
 WORKDIR /app
@@ -43,7 +70,7 @@ RUN yarn db:generate
 RUN yarn build
 
 
-# 3. Runtime layer
+# 4. Runtime layer
 FROM node:18-slim AS runner
 
 WORKDIR /app

@@ -1,5 +1,5 @@
 // Temporarily commented out class-validator imports due to Jest compilation issues
-// import { IsBoolean, IsNotEmpty } from 'class-validator'
+import { IsBoolean, IsNotEmpty } from 'class-validator'
 
 export class UserDTO {
   constructor (user: UserDTO) {
@@ -49,8 +49,8 @@ export class UserViewDTO {
 }
 
 export class UpdatePrivacyInputDTO {
-  // @IsBoolean() // Temporarily commented out due to Jest compilation issue
-  // @IsNotEmpty() // Temporarily commented out due to Jest compilation issue
+  @IsBoolean()
+  @IsNotEmpty()
   isPrivate: boolean
 
   constructor(isPrivate: boolean) {
@@ -59,7 +59,7 @@ export class UpdatePrivacyInputDTO {
 }
 
 export class UpdateProfilePictureDTO {
-  // @IsNotEmpty() // Temporarily commented out due to Jest compilation issue
+  @IsNotEmpty()
   profilePicture: string
 
   constructor(profilePicture: string) {
