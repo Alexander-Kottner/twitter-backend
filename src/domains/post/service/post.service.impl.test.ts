@@ -33,7 +33,8 @@ jest.mock('class-validator', () => ({
   Min: () => () => {},
   Max: () => () => {},
   ValidateNested: () => () => {},
-  ArrayMaxSize: () => () => {}
+  ArrayMaxSize: () => () => {},
+  IsBoolean: () => () => {}
 }))
 
 jest.mock('@utils/s3', () => ({
