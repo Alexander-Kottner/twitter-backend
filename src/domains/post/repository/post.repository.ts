@@ -12,6 +12,7 @@ export interface PostRepository {
   getPostsByAuthorId: (authorId: string) => Promise<PostDTO[]>
   getCommentsByParentId: (parentId: string) => Promise<PostDTO[]>
   getCommentsByParentIdPaginated: (parentId: string, options: CursorPagination) => Promise<PostDTO[]>
+  getCommentsByParentIdPaginatedSortedByReactions: (parentId: string, options: CursorPagination) => Promise<PostDTO[]>
   getCommentsByUserId: (userId: string) => Promise<PostDTO[]>
   
   // New methods for handling post images

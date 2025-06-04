@@ -373,8 +373,8 @@ export class PostServiceImpl implements PostService {
       }
     }
 
-    // Get all comments for this post with pagination
-    const comments = await this.repository.getCommentsByParentIdPaginated(postId, options)
+    // Get all comments for this post with pagination and proper sorting
+    const comments = await this.repository.getCommentsByParentIdPaginatedSortedByReactions(postId, options)
 
     // Transform comments into ExtendedPostDTOs with reaction counts
     const extendedComments = await Promise.all(comments.map(async (comment) => {
@@ -402,14 +402,7 @@ export class PostServiceImpl implements PostService {
       })
     }))
 
-    // Sort comments by total reactions (likes + retweets) in descending order
-    extendedComments.sort((a, b) => {
-      const totalReactionsA = (a.qtyLikes || 0) + (a.qtyRetweets || 0);
-      const totalReactionsB = (b.qtyLikes || 0) + (b.qtyRetweets || 0);
-      return totalReactionsB - totalReactionsA;
-    });
-
-    return extendedComments;
+    return extendedComments
   }
 
   async getPostsWithComments(userId: string, postId: string): Promise<ExtendedPostDTO> {

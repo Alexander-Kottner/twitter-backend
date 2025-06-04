@@ -298,4 +298,160 @@ export class PostRepositoryImpl implements PostRepository {
     
     return this.mapPostImageToDTO(image)
   }
+
+  async getCommentsByParentIdPaginatedSortedByReactions(parentId: string, options: CursorPagination): Promise<PostDTO[]> {
+    // For cursor pagination with custom sorting, we need to handle the cursor logic differently
+    // Since we're sorting by reactions (likeCount + retweetCount), we need to use a compound cursor
+    
+    let whereClause: any = {
+      parentId,
+      deletedAt: null
+    }
+
+    // Handle cursor pagination with reaction-based sorting
+    if (options.after || options.before) {
+      // We need to get the reference post to understand the cursor position
+      const cursorId = options.after || options.before
+      const cursorPost = await this.db.post.findUnique({
+        where: { id: cursorId },
+        select: { 
+          id: true, 
+          likeCount: true, 
+          retweetCount: true,
+          createdAt: true
+        }
+      })
+
+      if (cursorPost) {
+        const cursorTotalReactions = (cursorPost.likeCount || 0) + (cursorPost.retweetCount || 0)
+        
+        if (options.after) {
+          // Get posts with fewer reactions than cursor, or same reactions but later creation date
+          whereClause = {
+            ...whereClause,
+            OR: [
+              {
+                // Posts with fewer total reactions
+                AND: [
+                  {
+                    OR: [
+                      { likeCount: { lt: cursorTotalReactions } },
+                      {
+                        AND: [
+                          { likeCount: cursorPost.likeCount },
+                          { retweetCount: { lt: cursorPost.retweetCount } }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                // Posts with same total reactions but created after cursor post
+                AND: [
+                  { likeCount: cursorPost.likeCount },
+                  { retweetCount: cursorPost.retweetCount },
+                  { createdAt: { gt: cursorPost.createdAt } }
+                ]
+              },
+              {
+                // Posts with same total reactions and same creation time but different ID (for consistency)
+                AND: [
+                  { likeCount: cursorPost.likeCount },
+                  { retweetCount: cursorPost.retweetCount },
+                  { createdAt: cursorPost.createdAt },
+                  { id: { gt: cursorPost.id } }
+                ]
+              }
+            ]
+          }
+        } else if (options.before) {
+          // Get posts with more reactions than cursor, or same reactions but earlier creation date
+          whereClause = {
+            ...whereClause,
+            OR: [
+              {
+                // Posts with more total reactions
+                AND: [
+                  {
+                    OR: [
+                      { likeCount: { gt: cursorTotalReactions } },
+                      {
+                        AND: [
+                          { likeCount: cursorPost.likeCount },
+                          { retweetCount: { gt: cursorPost.retweetCount } }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                // Posts with same total reactions but created before cursor post
+                AND: [
+                  { likeCount: cursorPost.likeCount },
+                  { retweetCount: cursorPost.retweetCount },
+                  { createdAt: { lt: cursorPost.createdAt } }
+                ]
+              },
+              {
+                // Posts with same total reactions and same creation time but different ID (for consistency)
+                AND: [
+                  { likeCount: cursorPost.likeCount },
+                  { retweetCount: cursorPost.retweetCount },
+                  { createdAt: cursorPost.createdAt },
+                  { id: { lt: cursorPost.id } }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+
+    const comments = await this.db.post.findMany({
+      where: whereClause,
+      take: options.limit || undefined,
+      orderBy: [
+        // Primary sort: by total reactions (desc) - we'll handle this with a raw query approach
+        { likeCount: 'desc' },
+        { retweetCount: 'desc' },
+        // Secondary sort: by creation date (desc) for posts with same reaction count
+        { createdAt: 'desc' },
+        // Tertiary sort: by ID for complete consistency
+        { id: 'asc' }
+      ],
+      include: {
+        images: {
+          orderBy: {
+            index: 'asc'
+          }
+        }
+      }
+    })
+
+    // Since Prisma doesn't support computed column sorting directly, we need to sort by total reactions
+    const sortedComments = comments.sort((a, b) => {
+      const totalReactionsA = (a.likeCount || 0) + (a.retweetCount || 0)
+      const totalReactionsB = (b.likeCount || 0) + (b.retweetCount || 0)
+      
+      // Primary sort: by total reactions (descending)
+      if (totalReactionsA !== totalReactionsB) {
+        return totalReactionsB - totalReactionsA
+      }
+      
+      // Secondary sort: by creation date (descending)
+      if (a.createdAt.getTime() !== b.createdAt.getTime()) {
+        return b.createdAt.getTime() - a.createdAt.getTime()
+      }
+      
+      // Tertiary sort: by ID (ascending) for consistency
+      return a.id.localeCompare(b.id)
+    })
+
+    // Apply limit after sorting if we had to do in-memory sorting
+    const finalComments = options.limit ? sortedComments.slice(0, options.limit) : sortedComments
+
+    return finalComments.map(post => this.mapPostToDTO(post))
+  }
 }
